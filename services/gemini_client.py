@@ -2,6 +2,8 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
+from core.usage_tracker import log_call
+
 load_dotenv()
 
 
@@ -16,12 +18,10 @@ if __name__ == "__main__":
     client = get_client()
     text_model = os.environ.get("GEMINI_TEXT_MODEL")
     if not text_model:
-        raise RuntimeError("GEMINI_TEXT_M0DEL not found!")
+        raise RuntimeError("GEMINI_TEXT_MODEL not found!")
     response = client.models.generate_content(
         model=text_model,
         contents="Ответь одним словом: работает?",
     )
     print(response.text)
-    print("---")
-    for m in client.models.list():
-        print(m.name)
+    log_call(text_model, tokens=response.usage_metadata.total_token_count)

@@ -4,6 +4,7 @@ from google.genai import types
 from dotenv import load_dotenv
 
 from services.gemini_client import get_client
+from core.usage_tracker import log_call
 
 OUTPUT_PATH = Path(__file__).parent.parent / "tts_test.wav"
 load_dotenv()
@@ -13,7 +14,7 @@ def synthesize(text: str, voice: str = "Charon") -> bytes:
     client = get_client()
     tts_model = os.environ.get("GEMINI_TTS_MODEL")
     if not tts_model:
-        raise RuntimeError("GEMINI_TTS_M0DEL not found!")
+        raise RuntimeError("GEMINI_TTS_MODEL not found!")
     response = client.models.generate_content(
         model=tts_model,
         contents=text,
@@ -26,6 +27,7 @@ def synthesize(text: str, voice: str = "Charon") -> bytes:
             ),
         ),
     )
+    log_call(tts_model, tokens=response.usage_metadata.total_token_count)
     return response.candidates[0].content.parts[0].inline_data.data
 
 
