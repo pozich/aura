@@ -1,0 +1,93 @@
+CREATE TABLE IF NOT EXISTS books (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  author TEXT,
+  pages INTEGER,
+  cover_path TEXT,
+  added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS chapters (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER NOT NULL REFERENCES books (id) ON DELETE CASCADE,
+  idx INTEGER NOT NULL,
+  title TEXT,
+  text TEXT NOT NULL,
+  page_start INTEGER,
+  audio_path TEXT,
+  duration_sec INTEGER,
+  complexity_score REAL,
+  ai_status TEXT NOT NULL DEFAULT 'pending' CHECK (
+    ai_status IN ('pending', 'processing', 'done', 'error')
+  ),
+  tts_status TEXT NOT NULL DEFAULT 'pending' CHECK (
+    tts_status IN ('pending', 'processing', 'done', 'error')
+  )
+);
+
+CREATE TABLE IF NOT EXISTS chapter_segments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  chapter_id INTEGER NOT NULL REFERENCES chapters (id) ON DELETE CASCADE,
+  idx INTEGER NOT NULL,
+  char_start INTEGER NOT NULL,
+  char_end INTEGER NOT NULL,
+  start_time_ms INTEGER NOT NULL,
+  end_time_ms INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER NOT NULL REFERENCES books (id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notebooks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  text TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER REFERENCES books (id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+  content TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS reading_progress (
+  book_id INTEGER PRIMARY KEY REFERENCES books (id) ON DELETE CASCADE,
+  last_page INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS api_keys (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  label TEXT NOT NULL,
+  key TEXT NOT NULL,
+  model_default TEXT,
+  is_active INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS usage_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  api_key_id INTEGER REFERENCES api_keys (id) ON DELETE CASCADE,
+  model TEXT NOT NULL,
+  tokens INTEGER,
+  called_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS ahp_criteria (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  weight REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ahp_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER NOT NULL REFERENCES books (id) ON DELETE CASCADE,
+  score REAL NOT NULL,
+  explanation TEXT,
+  computed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
