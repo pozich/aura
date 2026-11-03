@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt
 from ui.screens.book_screen import BookScreen
 from ui.screens.library_screen import LibraryScreen
 from ui.screens.storage_screen import StorageScreen
+from ui.screens.settings_screen import SettingsDialog
 from ui.widgets.chat_overlay import ChatOverlay
 
 with open(Path(__file__).parent.parent / "pyproject.toml", "rb") as f:
@@ -22,6 +23,9 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.library_screen = LibraryScreen()
+        self.library_screen.settings_requested.connect(
+            lambda: SettingsDialog(self).exec()
+        )
         self.book_screen = BookScreen()
         self.storage_screen = StorageScreen()
 
@@ -53,3 +57,5 @@ class MainWindow(QMainWindow):
         elif event.key() == Qt.Key_Right:
             self.active_screen = (self.active_screen + 1) % len(key_list)
             self.show_screen(key_list[self.active_screen])
+        elif event.key() == Qt.Key_Escape:
+            SettingsDialog(self).exec()

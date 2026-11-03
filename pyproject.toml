@@ -1,3 +1,7 @@
 [project]
 name = "aura"
 version = "2026.10.31"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

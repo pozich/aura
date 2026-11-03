@@ -20,6 +20,31 @@ def init_db() -> None:
     conn.close()
 
 
+def list_api_keys() -> list[sqlite3.Row]:
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM api_keys ORDER BY id").fetchall()
+    conn.close()
+    return rows
+
+
+def add_api_key(label: str, key: str, model_default: str | None = None) -> None:
+    conn = get_connection()
+    conn.execute(
+        "INSERT INTO api_keys (label, key, model_default, is_active) VALUES (?, ?, ?, 0)",
+        (label, key, model_default),
+    )
+    conn.commit()
+    conn.close()
+
+
+def set_active_api_key(key_id: int) -> None:
+    conn = get_connection()
+    conn.execute("UPDATE api_keys SET is_active = 0")
+    conn.execute("UPDATE api_keys SET is_active = 1 WHERE id = ?", (key_id,))
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
     init_db()
     print(f"DB done: {DB_PATH}")
