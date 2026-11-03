@@ -7,10 +7,13 @@ from PySide6.QtWidgets import (
     QPushButton,
 )
 from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 
 
 class LibraryScreen(QWidget):
+
+    settings_requested = Signal()
+
     def __init__(self):
         super().__init__()
         SIDE_SIZE = (220, 330)
@@ -66,6 +69,8 @@ class LibraryScreen(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.addWidget(header)
         main_layout.addWidget(body)
+
+        self.settings_button.clicked.connect(self.settings_requested.emit)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
