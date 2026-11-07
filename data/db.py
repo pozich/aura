@@ -45,6 +45,13 @@ def set_active_api_key(key_id: int) -> None:
     conn.close()
 
 
+def delete_api_key(key_id: int) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
     init_db()
     print(f"DB done: {DB_PATH}")

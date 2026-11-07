@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
 )
 
-from data.db import list_api_keys, add_api_key, set_active_api_key
+from data.db import delete_api_key, list_api_keys, add_api_key, set_active_api_key
 
 
 class SettingsDialog(QDialog):
@@ -26,11 +26,14 @@ class SettingsDialog(QDialog):
 
         add_button = QPushButton("Добавить")
         add_button.clicked.connect(self._on_add)
+        delete_button = QPushButton("Удалить")
+        delete_button.clicked.connect(self._on_delete)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.key_list)
         layout.addLayout(form)
         layout.addWidget(add_button)
+        layout.addWidget(delete_button)
 
         self._reload()
 
@@ -50,4 +53,8 @@ class SettingsDialog(QDialog):
 
     def _on_activate(self, item):
         set_active_api_key(item.data(1))
+        self._reload()
+
+    def _on_delete(self):
+        delete_api_key(self.key_list.currentItem().data(1))
         self._reload()

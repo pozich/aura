@@ -19,7 +19,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(APP_NAME)
         self.resize(1600, 900)
-        self.active_screen = 0
 
         self.stack = QStackedWidget()
         self.library_screen = LibraryScreen()
@@ -49,13 +48,12 @@ class MainWindow(QMainWindow):
         self.stack.setCurrentWidget(screens[name])
 
     def keyPressEvent(self, event):
-        key_list = ["library", "book", "storage"]
 
-        if event.key() == Qt.Key_Left:
-            self.active_screen = (self.active_screen - 1) % len(key_list)
-            self.show_screen(key_list[self.active_screen])
-        elif event.key() == Qt.Key_Right:
-            self.active_screen = (self.active_screen + 1) % len(key_list)
-            self.show_screen(key_list[self.active_screen])
+        if event.key() == Qt.Key_Space:
+            self.show_screen("book")
         elif event.key() == Qt.Key_Escape:
+            self.show_screen("library")
+        elif event.key() == Qt.Key_E:
+            self.show_screen("storage")
+        elif event.key() == Qt.Key_C:
             SettingsDialog(self).exec()
