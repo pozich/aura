@@ -1,80 +1,301 @@
+from __future__ import annotations
+
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
-    QLabel,
-    QVBoxLayout,
+    QFrame,
     QHBoxLayout,
-    QWidget,
+    QLabel,
+    QMenu,
     QProgressBar,
     QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QPixmap
-from PySide6.QtCore import Qt, Signal
+
+from ui.styles import hue_for
+from ui.widgets.carousel import Carousel
+
+
+class CategoryStripItem(QPushButton):
+    def __init__(self, label: str, parent=None):
+        super().__init__(label, parent)
+        self.setFlat(True)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFixedWidth(190)
+        self._active = False
+        self._apply_style()
+
+    def set_active(self, active: bool):
+        self._active = active
+        self._apply_style()
+
+    def _apply_style(self):
+        if self._active:
+            self.setStyleSheet(
+                "QPushButton { background: transparent; border: none; color: white;"
+                " font-family: Georgia, serif; font-size: 17px; }"
+            )
+        else:
+            self.setStyleSheet(
+                "QPushButton { background: transparent; border: none; color: #475569;"
+                " font-family: Georgia, serif; font-size: 13px; }"
+            )
+
+
+class BookCard(QFrame):
+    clicked = Signal(int)
+    category_set = Signal(int, object)
+
+    ACTIVE_SIZE = (190, 280)
+    SIDE_SIZE = (150, 220)
+
+    def __init__(self, book, categories: list[str] | None = None, parent=None):
+        super().__init__(parent)
+        self.book_id = book.id
+        self._categories = categories or []
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.title_label = QLabel(book.title, self)
+        self.title_label.setWordWrap(True)
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setStyleSheet(
+            "font-family: Georgia, serif; font-size: 17px; color: white; background: transparent;"
+        )
+
+        layout = QVBoxLayout(self)
+        layout.addStretch()
+        layout.addWidget(self.title_label)
+        layout.addStretch()
+
+        self.tag_button = QPushButton("🏷", self)
+        self.tag_button.setFixedSize(24, 24)
+        self.tag_button.setStyleSheet(
+            "QPushButton { background-color: rgba(0,0,0,0.6); border: none;"
+            " border-radius: 12px; color: white; }"
+            " QPushButton:hover { background-color: rgba(0,0,0,0.85); }"
+        )
+        self.tag_button.clicked.connect(self._open_category_menu)
+
+        self._active = False
+        self._apply_style()
+
+    def set_categories(self, categories: list[str]):
+        self._categories = categories
+
+    def set_active(self, active: bool):
+        self._active = active
+        self._apply_style()
+
+    def _apply_style(self):
+        border = "border: 3px solid #60a5fa;" if self._active else "border: none;"
+        self.setStyleSheet(
+            f"QFrame {{ background-color: {hue_for(self.book_id)}; border-radius: 12px; {border} }}"
+        )
+        size = self.ACTIVE_SIZE if self._active else self.SIDE_SIZE
+        self.setFixedSize(*size)
+        self.tag_button.move(8, size[1] - 32)
+
+    def _open_category_menu(self):
+        menu = QMenu(self)
+        none_action = menu.addAction("Без категории")
+        none_action.triggered.connect(lambda: self.category_set.emit(self.book_id, None))
+        for name in self._categories:
+            action = menu.addAction(name)
+            action.triggered.connect(
+                lambda checked=False, n=name: self.category_set.emit(self.book_id, n)
+            )
+        menu.exec(self.tag_button.mapToGlobal(self.tag_button.rect().bottomLeft()))
+
+    def mousePressEvent(self, event):
+        self.clicked.emit(self.book_id)
+        super().mousePressEvent(event)
 
 
 class LibraryScreen(QWidget):
 
-    settings_requested = Signal()
+    book_opened = Signal(int)
 
     def __init__(self):
         super().__init__()
-        SIDE_SIZE = (220, 330)
-        ACTIVE_SIZE = (300, 450)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._state = None
+        self._active_category: str | None = None
+        self._books: list = []
 
-        header = QWidget()
-        header_layout = QVBoxLayout(header)
-        header_layout.addWidget(
-            QLabel("Название книги"), alignment=Qt.AlignmentFlag.AlignCenter
-        )
-        header_layout.addWidget(
-            QLabel("Автор книги"), alignment=Qt.AlignmentFlag.AlignCenter
-        )
-        header.setFixedHeight(140)
+        self.category_carousel = Carousel(slot_width=190, height=44)
+        self.category_carousel.setVisible(False)
 
-        self.settings_button = QPushButton("⚙", self)
-        self.settings_button.setFixedSize(32, 32)
+        self.book_carousel = Carousel(slot_width=230, height=300)
 
-        covers = QWidget()
-        covers_layout = QHBoxLayout(covers)
-        cover_paths = ["/home/pzch/raw/nov.jpg"] * 3
-        covers_labels = []
-        for i, path in enumerate(cover_paths):
-            size = ACTIVE_SIZE if i == 1 else SIDE_SIZE
-            label = QLabel()
-            pixmap = QPixmap(path).scaled(
-                *size,
-                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            label.setPixmap(pixmap)
-            label.setFixedSize(*size)
-            covers_layout.addWidget(label, alignment=Qt.AlignmentFlag.AlignCenter)
-            covers_labels.append(label)
-        book_info = QWidget()
-        book_info_layout = QVBoxLayout(book_info)
-        book_info_layout.addWidget(
-            QLabel("Страницы | Обработано | Озвучено"),
-            alignment=Qt.AlignmentFlag.AlignCenter,
-        )
-        book_info.setFixedHeight(120)
-        progress = QProgressBar()
-        progress.setRange(0, 100)
-        progress.setValue(67)
-        progress.setTextVisible(False)
+        self.author_label = QLabel()
+        self.author_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.author_label.setProperty("role", "muted")
 
-        body = QWidget()
-        body_layout = QVBoxLayout(body)
-        body_layout.addWidget(covers)
-        body_layout.addWidget(book_info)
-        body_layout.addWidget(progress)
+        self.title_label = QLabel()
+        self.title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title_label.setStyleSheet("font-family: Georgia, serif; font-size: 22px;")
+
+        self.info_label = QLabel()
+        self.info_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.info_label.setProperty("role", "muted")
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 100)
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.setFixedWidth(360)
+
+        self.read_button = QPushButton("Читать")
+        self.read_button.setProperty("role", "accent")
+        self.read_button.clicked.connect(self._on_read_clicked)
+
+        progress_row = QHBoxLayout()
+        progress_row.addStretch()
+        progress_row.addWidget(self.progress_bar)
+        progress_row.addStretch()
+
+        read_row = QHBoxLayout()
+        read_row.addStretch()
+        read_row.addWidget(self.read_button)
+        read_row.addStretch()
+
+        info_panel = QVBoxLayout()
+        info_panel.setSpacing(6)
+        info_panel.addWidget(self.author_label)
+        info_panel.addWidget(self.title_label)
+        info_panel.addWidget(self.info_label)
+        info_panel.addLayout(progress_row)
+        info_panel.addLayout(read_row)
 
         main_layout = QVBoxLayout(self)
-        main_layout.addWidget(header)
-        main_layout.addWidget(body)
+        main_layout.setContentsMargins(0, 16, 0, 0)
+        main_layout.addWidget(self.category_carousel)
+        main_layout.addWidget(self.book_carousel)
+        main_layout.addLayout(info_panel)
+        main_layout.addStretch()
 
-        self.settings_button.clicked.connect(self.settings_requested.emit)
+    def refresh(self, state):
+        self._state = state
+        self._rebuild_categories()
+        self._rebuild_cards()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        margin = 20
-        self.settings_button.move(
-            self.width() - self.settings_button.width() - margin, margin
-        )
+    def _rebuild_categories(self):
+        names = self._state.all_category_names()
+        show_strip = len(names) > 1
+        self.category_carousel.setVisible(show_strip)
+
+        if not show_strip:
+            self._active_category = None
+            return
+
+        if self._active_category not in names:
+            self._active_category = names[0]
+
+        items = []
+        for name in names:
+            item = CategoryStripItem(name)
+            item.set_active(name == self._active_category)
+            item.clicked.connect(lambda _checked=False, n=name: self._on_category_selected(n))
+            items.append(item)
+        self.category_carousel.set_items(items)
+        self.category_carousel.set_index(names.index(self._active_category), animate=False)
+
+    def _on_category_selected(self, name: str):
+        if name == self._active_category:
+            return
+        self._active_category = name
+        self._rebuild_categories()
+        self._rebuild_cards()
+
+    def _visible_books(self):
+        if self._active_category is None:
+            return list(self._state.books)
+        return self._state.books_in_category(self._active_category)
+
+    def _rebuild_cards(self):
+        self._books = self._visible_books()
+        categories = self._state.all_category_names()
+
+        cards = []
+        for book in self._books:
+            card = BookCard(book, categories)
+            card.clicked.connect(self._on_card_clicked)
+            card.category_set.connect(self._on_category_set)
+            cards.append(card)
+        self.book_carousel.set_items(cards)
+        self._update_selection_style()
+        self._update_info_panel()
+
+    def _on_card_clicked(self, book_id: int):
+        index = next((k for k, b in enumerate(self._books) if b.id == book_id), None)
+        if index is None:
+            return
+        if index == self.book_carousel.index():
+            self.book_opened.emit(book_id)
+            return
+        self.book_carousel.set_index(index)
+        self._update_selection_style()
+        self._update_info_panel()
+
+    def _on_category_set(self, book_id: int, category_name: str | None):
+        category_id = None
+        if category_name is not None:
+            category = next((c for c in self._state.categories if c.name == category_name), None)
+            category_id = category.id if category else None
+        self._state.set_book_category(book_id, category_id)
+        self._rebuild_categories()
+        self._rebuild_cards()
+
+    def _update_selection_style(self):
+        active_index = self.book_carousel.index()
+        for k, card in enumerate(self.book_carousel.items()):
+            card.set_active(k == active_index)
+
+    def _update_info_panel(self):
+        index = self.book_carousel.index()
+        book = self._books[index] if self._books else None
+        if book is None:
+            self.author_label.setText("")
+            self.title_label.setText("Библиотека пуста")
+            self.info_label.setText("Добавь книгу в Хранилище")
+            self.progress_bar.setValue(0)
+            return
+
+        from data.db import get_reading_progress
+
+        self.author_label.setText(book.author or "")
+        self.title_label.setText(book.title)
+        pages = book.pages or 0
+        page = get_reading_progress(book.id) or 0
+        percent = int(100 * page / pages) if pages else 0
+        pages_text = f"{pages} стр." if pages else "страниц не указано"
+        self.info_label.setText(f"{pages_text} · прочитано {page} ({percent}%)")
+        self.progress_bar.setValue(percent)
+
+    def _on_read_clicked(self):
+        if self._books:
+            self.book_opened.emit(self._books[self.book_carousel.index()].id)
+
+    def keyPressEvent(self, event):
+        from data.keybindings import matches
+
+        keys = self._state.keys if self._state else {}
+        names = self._state.all_category_names() if self._state else []
+
+        if matches(event, "library_prev_book", keys):
+            self.book_carousel.set_index(self.book_carousel.index() - 1)
+            self._update_selection_style()
+            self._update_info_panel()
+        elif matches(event, "library_next_book", keys):
+            self.book_carousel.set_index(self.book_carousel.index() + 1)
+            self._update_selection_style()
+            self._update_info_panel()
+        elif matches(event, "library_prev_category", keys) and self._active_category in names:
+            idx = max(0, names.index(self._active_category) - 1)
+            self._on_category_selected(names[idx])
+        elif matches(event, "library_next_category", keys) and self._active_category in names:
+            idx = min(len(names) - 1, names.index(self._active_category) + 1)
+            self._on_category_selected(names[idx])
+        elif matches(event, "library_open", keys):
+            self._on_read_clicked()
+        else:
+            super().keyPressEvent(event)
