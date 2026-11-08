@@ -160,24 +160,30 @@ QWidget#NavBar {{
 QFrame#NavTab {{
     background: transparent;
     border: none;
-    border-bottom: 3px solid transparent;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+}}
+
+QFrame#NavTab QPushButton {{
+    background: transparent;
+    border: none;
+    padding: 2px 4px;
+    color: {TEXT_DIM};
+}}
+
+QFrame#NavTab QPushButton:hover {{
+    background: transparent;
+    color: {TEXT_SECONDARY};
 }}
 
 QFrame#NavTab[active="true"] {{
-    border-bottom: 3px solid {ACCENT_LIGHT};
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 {BG_SECONDARY}, stop:1 {BG_PRIMARY});
 }}
 
-/* Цвет текста/иконки вкладок задаётся НЕ отсюда — напрямую в NavTab._apply_style()
-   через setStyleSheet() на конкретном QLabel. На некоторых системных Qt-темах
-   (Breeze/qt6ct/Kvantum) цвет текста элементов управления в приложенческом QSS
-   может игнорироваться в пользу системной палитры — прямой setStyleSheet на
-   экземпляре от этого не зависит. */
-
-QFrame#ChatFooter {{
-    background-color: rgba(0, 0, 0, 0.25);
-    border-top: 1px solid {BORDER};
+QFrame#NavTab[active="true"] QPushButton {{
+    color: {TEXT_PRIMARY};
+    font-weight: 600;
 }}
-
 QWidget#StackBody {{
     background-color: {BG_PRIMARY};
 }}
