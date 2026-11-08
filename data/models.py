@@ -18,7 +18,14 @@ class Book:
     author: Optional[str]
     pages: Optional[int]
     cover_path: Optional[str]
+    category_id: Optional[int] = None
     added_at: Optional[str] = None
+
+
+@dataclass
+class Category:
+    id: Optional[int]
+    name: str
 
 
 @dataclass
