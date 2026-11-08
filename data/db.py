@@ -52,6 +52,38 @@ def delete_api_key(key_id: int) -> None:
     conn.close()
 
 
+def list_categories() -> list[sqlite3.Row]:
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM categories ORDER BY name").fetchall()
+    conn.close()
+    return rows
+
+
+def add_category(name: str) -> int:
+    conn = get_connection()
+    cur = conn.execute("INSERT INTO categories (name) VALUES (?)", (name,))
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return new_id
+
+
+def delete_category(category_id: int) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
+    conn.commit()
+    conn.close()
+
+
+def set_book_category(book_id: int, category_id: int | None) -> None:
+    conn = get_connection()
+    conn.execute(
+        "UPDATE books SET category_id = ? WHERE id = ?", (category_id, book_id)
+    )
+    conn.commit()
+    conn.close()
+
+
 if __name__ == "__main__":
     init_db()
     print(f"DB done: {DB_PATH}")
