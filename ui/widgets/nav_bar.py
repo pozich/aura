@@ -35,6 +35,12 @@ class NavTab(QFrame):
         self.tab_id = tab_id
         self.setObjectName("NavTab")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        # на некоторых системных Qt-темах QFrame по умолчанию рисует свою собственную
+        # (скруглённую) рамку поверх QSS, если явно не сказать "без рамки" в коде —
+        # border: none в стиль-листе одной темой игнорировался (та же природа бага,
+        # что была с цветом текста кнопок)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setFrameShadow(QFrame.Shadow.Plain)
         if fixed_width is not None:
             self.setFixedWidth(fixed_width)
 
