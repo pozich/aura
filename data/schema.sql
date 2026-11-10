@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS books (
   pages INTEGER,
   cover_path TEXT,
   category_id INTEGER REFERENCES categories (id) ON DELETE SET NULL,
-  added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  source_path TEXT
 );
 
 CREATE TABLE IF NOT EXISTS categories (

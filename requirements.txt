@@ -2,3 +2,5 @@ PySide6
 google-genai
 python-dotenv
 pytest
+ebooklib
+beautifulsoup4
