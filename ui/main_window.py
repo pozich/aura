@@ -31,6 +31,7 @@ class MainWindow(QMainWindow):
         self.state.load_categories()
         self.state.load_books()
         self.state.load_notebooks()
+        self.state.load_chat_messages()
 
         self.nav = NavBar()
         self.nav.tab_selected.connect(self.show_screen)
@@ -41,12 +42,14 @@ class MainWindow(QMainWindow):
 
         self.library_screen = LibraryScreen()
         self.library_screen.book_opened.connect(self.open_book_tab)
+        self.library_screen.book_deleted.connect(self._on_book_deleted)
 
         self.storage_screen = StorageScreen()
         self.storage_screen.notebook_opened.connect(self.open_notes_tab)
         self.storage_screen.book_added.connect(
             lambda: self.library_screen.refresh(self.state)
         )
+        self.storage_screen.book_deleted.connect(self._on_book_deleted)
 
         self.chat_screen = ChatScreen(self.state)
         self.settings_screen = SettingsScreen(self.state)
@@ -105,6 +108,7 @@ class MainWindow(QMainWindow):
             book = self.state.book_by_id(book_id)
             screen = BookScreen(book)
             screen.set_exit_handler(lambda: self.show_screen("library"))
+            screen.context_requested.connect(self.chat_footer.attach_context)
             self.screens[tab_id] = screen
             self.stack.addWidget(screen)
         book = self.state.book_by_id(book_id)
@@ -131,6 +135,11 @@ class MainWindow(QMainWindow):
         self.nav.close_dynamic_tab(tab_id)
         if self.state.current_screen == tab_id:
             self.show_screen("library")
+
+    def _on_book_deleted(self, book_id: int):
+        tab_id = f"book:{book_id}"
+        if tab_id in self.nav.tab_ids():
+            self.close_tab(tab_id)
 
     def cycle_tab(self, direction: int):
         ids = self.nav.tab_ids()

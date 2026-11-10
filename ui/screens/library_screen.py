@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -14,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from ui.styles import hue_for
 from ui.widgets.carousel import Carousel
+from ui.widgets.icon_button import CircleIconButton
 
 
 class CategoryStripItem(QPushButton):
@@ -45,6 +49,7 @@ class CategoryStripItem(QPushButton):
 class BookCard(QFrame):
     clicked = Signal(int)
     category_set = Signal(int, object)
+    delete_requested = Signal(int)
 
     ACTIVE_SIZE = (190, 280)
     SIDE_SIZE = (150, 220)
@@ -53,7 +58,11 @@ class BookCard(QFrame):
         super().__init__(parent)
         self.book_id = book.id
         self._categories = categories or []
+        self._cover_path = book.cover_path
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.cover_label = QLabel(self)
+        self.cover_label.setScaledContents(True)
 
         self.title_label = QLabel(book.title, self)
         self.title_label.setWordWrap(True)
@@ -67,14 +76,11 @@ class BookCard(QFrame):
         layout.addWidget(self.title_label)
         layout.addStretch()
 
-        self.tag_button = QPushButton("🏷", self)
-        self.tag_button.setFixedSize(24, 24)
-        self.tag_button.setStyleSheet(
-            "QPushButton { background-color: rgba(0,0,0,0.6); border: none;"
-            " border-radius: 12px; color: white; }"
-            " QPushButton:hover { background-color: rgba(0,0,0,0.85); }"
-        )
+        self.tag_button = CircleIconButton("tag", size=24, parent=self)
         self.tag_button.clicked.connect(self._open_category_menu)
+
+        self.delete_button = CircleIconButton("close", size=22, parent=self)
+        self.delete_button.clicked.connect(lambda: self.delete_requested.emit(self.book_id))
 
         self._active = False
         self._apply_style()
@@ -87,13 +93,28 @@ class BookCard(QFrame):
         self._apply_style()
 
     def _apply_style(self):
-        border = "border: 3px solid #60a5fa;" if self._active else "border: none;"
-        self.setStyleSheet(
-            f"QFrame {{ background-color: {hue_for(self.book_id)}; border-radius: 12px; {border} }}"
-        )
         size = self.ACTIVE_SIZE if self._active else self.SIDE_SIZE
         self.setFixedSize(*size)
+        border = "border: 3px solid #60a5fa;" if self._active else "border: none;"
+
+        has_cover = bool(self._cover_path) and Path(self._cover_path).exists()
+        if has_cover:
+            self.cover_label.setGeometry(0, 0, *size)
+            self.cover_label.setPixmap(QPixmap(self._cover_path))
+            self.cover_label.setStyleSheet(f"border-radius: 12px; {border}")
+            self.cover_label.lower()
+            self.title_label.setVisible(False)
+            self.setStyleSheet(f"QFrame {{ border-radius: 12px; {border} }}")
+        else:
+            self.cover_label.clear()
+            self.cover_label.setGeometry(0, 0, 0, 0)
+            self.title_label.setVisible(True)
+            self.setStyleSheet(
+                f"QFrame {{ background-color: {hue_for(self.book_id)}; border-radius: 12px; {border} }}"
+            )
+
         self.tag_button.move(8, size[1] - 32)
+        self.delete_button.move(size[0] - 30, 8)
 
     def _open_category_menu(self):
         menu = QMenu(self)
@@ -114,6 +135,7 @@ class BookCard(QFrame):
 class LibraryScreen(QWidget):
 
     book_opened = Signal(int)
+    book_deleted = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -220,6 +242,7 @@ class LibraryScreen(QWidget):
             card = BookCard(book, categories)
             card.clicked.connect(self._on_card_clicked)
             card.category_set.connect(self._on_category_set)
+            card.delete_requested.connect(self._on_delete_book)
             cards.append(card)
         self.book_carousel.set_items(cards)
         self._update_selection_style()
@@ -243,6 +266,24 @@ class LibraryScreen(QWidget):
             category_id = category.id if category else None
         self._state.set_book_category(book_id, category_id)
         self._rebuild_categories()
+        self._rebuild_cards()
+
+    def _on_delete_book(self, book_id: int):
+        from PySide6.QtWidgets import QMessageBox
+        from data.db import delete_book
+
+        book = self._state.book_by_id(book_id)
+        title = book.title if book else "эту книгу"
+        reply = QMessageBox.question(
+            self,
+            "Удалить книгу?",
+            f'"{title}" и весь прогресс чтения будут удалены без возможности восстановления. Продолжить?',
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        delete_book(book_id)
+        self._state.load_books()
+        self.book_deleted.emit(book_id)
         self._rebuild_cards()
 
     def _update_selection_style(self):

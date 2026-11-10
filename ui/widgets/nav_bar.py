@@ -4,6 +4,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QWidget
 
+from ui.widgets.icon_button import CircleIconButton
+
 KIND_ICON = {
     "library": "📚",
     "storage": "📦",
@@ -56,9 +58,7 @@ class NavTab(QFrame):
         layout.addStretch()
 
         if closable:
-            close_button = QPushButton("✕")
-            close_button.setFixedSize(20, 20)
-            close_button.setFlat(True)
+            close_button = CircleIconButton("close", size=18)
             close_button.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             close_button.clicked.connect(lambda: self.close_requested.emit(self.tab_id))
             layout.addWidget(close_button)
