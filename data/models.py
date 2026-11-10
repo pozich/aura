@@ -20,6 +20,7 @@ class Book:
     cover_path: Optional[str]
     category_id: Optional[int] = None
     added_at: Optional[str] = None
+    source_path: Optional[str] = None
 
 
 @dataclass

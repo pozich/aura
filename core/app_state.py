@@ -26,10 +26,44 @@ class AppState:
         self.current_screen = "library"
         self.back_screen = "library"
         self.msgs: list[dict] = []
-        self.keys: dict[str, tuple[int, bool, bool]] = {}
+        self.keys: dict[str, dict] = {}
+        self.token_usage = 0
+
+    def load_keybindings(self):
+        from data.keybindings import load_keybindings
+
+        self.keys = load_keybindings()
 
     def load_categories(self):
         self.categories = [Category(**dict(row)) for row in db.list_categories()]
+
+    def load_books(self):
+        self.books = [Book(**dict(row)) for row in db.list_books()]
+
+    def load_notebooks(self):
+        self.notebooks = [Notebook(**dict(row)) for row in db.list_notebooks()]
+
+    def load_chat_messages(self):
+        self.msgs = [
+            {"text": row["content"], "me": row["role"] == "user"}
+            for row in db.list_chat_messages()
+        ]
+
+    def add_token_usage(self, total: int):
+        self.token_usage += total
+
+    def open_book(self, book_id: int) -> str:
+        tab_id = f"book:{book_id}"
+        self.open_tabs[tab_id] = OpenTab(tab_id=tab_id, kind="book", ref_id=book_id)
+        return tab_id
+
+    def open_notes(self, notebook_id: int) -> str:
+        tab_id = f"notes:{notebook_id}"
+        self.open_tabs[tab_id] = OpenTab(tab_id=tab_id, kind="notes", ref_id=notebook_id)
+        return tab_id
+
+    def close_tab(self, tab_id: str):
+        self.open_tabs.pop(tab_id, None)
 
     def category_name(self, category_id: Optional[int]) -> str:
         if category_id is None:
