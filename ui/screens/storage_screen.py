@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QInputDialog,
     QLabel,
     QLineEdit,
+    QListWidget,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.widgets.flow_layout import FlowLayout
+from ui.widgets.icon_button import CircleIconButton
 from ui.widgets.modal import ModalOverlay
 
 CELL_SIZE = 190
@@ -50,15 +52,23 @@ class AddTile(QFrame):
         label = QLabel("+", self)
         label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label.setGeometry(0, 0, CELL_SIZE, CELL_HEIGHT)
-        label.setStyleSheet("font-size: 48px; color: rgba(255,255,255,0.4); background: transparent;")
+        label.setStyleSheet(
+            "font-size: 48px; color: rgba(255,255,255,0.4); background: transparent;"
+        )
 
     def set_focused(self, focused: bool):
         self._focused = focused
         self._apply_style()
 
     def _apply_style(self):
-        border = "2px solid #60a5fa" if self._focused else "1px dashed rgba(255,255,255,0.30)"
-        self.setStyleSheet(f"QFrame#AddTile {{ border: {border}; border-radius: 12px; }}")
+        border = (
+            "2px solid #60a5fa"
+            if self._focused
+            else "1px dashed rgba(255,255,255,0.30)"
+        )
+        self.setStyleSheet(
+            f"QFrame#AddTile {{ border: {border}; border-radius: 12px; }}"
+        )
 
     def mousePressEvent(self, event):
         self.clicked.emit()
@@ -80,28 +90,36 @@ class NotebookCard(QFrame):
 
         accent = QFrame(self)
         accent.setGeometry(10, 10, 3, CELL_HEIGHT - 20)
-        accent.setStyleSheet("background-color: rgba(244, 114, 182, 0.5); border-radius: 1px;")
+        accent.setStyleSheet(
+            "background-color: rgba(244, 114, 182, 0.5); border-radius: 1px;"
+        )
 
         title = QLabel(notebook.title, self)
         title.setWordWrap(True)
         title.setGeometry(22, 14, CELL_SIZE - 48, CELL_HEIGHT - 60)
-        title.setStyleSheet("font-family: Georgia, serif; font-size: 16px; background: transparent;")
+        title.setStyleSheet(
+            "font-family: Georgia, serif; font-size: 16px; background: transparent;"
+        )
 
         hint = QLabel("✎ заметки", self)
         hint.setGeometry(22, CELL_HEIGHT - 32, CELL_SIZE - 48, 20)
         hint.setProperty("role", "muted")
         hint.setStyleSheet("background: transparent;")
 
-        delete_button = QPushButton("✕", self)
+        delete_button = CircleIconButton("close", size=24, parent=self)
         delete_button.setGeometry(CELL_SIZE - 32, 6, 24, 24)
-        delete_button.clicked.connect(lambda: self.delete_requested.emit(self.notebook_id))
+        delete_button.clicked.connect(
+            lambda: self.delete_requested.emit(self.notebook_id)
+        )
 
     def set_focused(self, focused: bool):
         self._focused = focused
         self._apply_style()
 
     def _apply_style(self):
-        border = "2px solid #60a5fa" if self._focused else "1px solid rgba(255,255,255,0.12)"
+        border = (
+            "2px solid #60a5fa" if self._focused else "1px solid rgba(255,255,255,0.12)"
+        )
         self.setStyleSheet(
             f"QFrame#NotebookCard {{ background-color: rgba(255,255,255,0.06); border: {border}; border-radius: 12px; }}"
         )
@@ -138,6 +156,16 @@ class AddItemModal(ModalOverlay):
         self.file_label = QLabel("Файл не выбран")
         self.file_label.setProperty("role", "muted")
 
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Искать по названию/автору…")
+        search_button = QPushButton("Искать в интернете")
+        search_button.clicked.connect(self._on_search)
+        self.search_results = QListWidget()
+        self.search_results.setMaximumHeight(110)
+        self.search_results.itemClicked.connect(self._on_pick_search_result)
+        self.search_results.setVisible(False)
+        self._search_results_data: list[dict] = []
+
         self.book_title_input = QLineEdit()
         self.book_title_input.setPlaceholderText("Название книги")
         self.book_author_input = QLineEdit()
@@ -148,10 +176,12 @@ class AddItemModal(ModalOverlay):
 
         book_layout.addWidget(file_button)
         book_layout.addWidget(self.file_label)
+        book_layout.addWidget(self.search_input)
+        book_layout.addWidget(search_button)
+        book_layout.addWidget(self.search_results)
         book_layout.addWidget(self.book_title_input)
         book_layout.addWidget(self.book_author_input)
         book_layout.addWidget(book_create)
-
         self.note_panel = QWidget()
         note_layout = QVBoxLayout(self.note_panel)
         note_layout.setContentsMargins(0, 12, 0, 0)
@@ -170,7 +200,10 @@ class AddItemModal(ModalOverlay):
     def _switch_tab(self, tab: str):
         self.book_panel.setVisible(tab == "book")
         self.note_panel.setVisible(tab == "note")
-        for button, active in ((self.book_tab, tab == "book"), (self.note_tab, tab == "note")):
+        for button, active in (
+            (self.book_tab, tab == "book"),
+            (self.note_tab, tab == "note"),
+        ):
             if active:
                 button.setStyleSheet(
                     "QPushButton { background-color: rgba(255,255,255,0.16);"
@@ -199,17 +232,68 @@ class AddItemModal(ModalOverlay):
             return
         from data.db import add_book
 
-        add_book(
+        book_id = add_book(
             title,
             self.book_author_input.text().strip() or None,
             source_path=self._book_source_path,
         )
+
+        if self._book_source_path and self._book_source_path.lower().endswith(".epub"):
+            from core.chapter_pipeline import import_book
+            from PySide6.QtWidgets import QMessageBox
+
+            try:
+                count = import_book(book_id, self._book_source_path)
+            except Exception as exc:
+                QMessageBox.warning(
+                    self,
+                    "Не удалось разобрать книгу",
+                    f"Книга добавлена, но текст не распознан:\n{exc}",
+                )
+            else:
+                if count == 0:
+                    QMessageBox.information(
+                        self, "Пусто", "В файле не нашлось ни одной главы с текстом."
+                    )
+
         self.book_title_input.clear()
         self.book_author_input.clear()
         self._book_source_path = None
         self.file_label.setText("Файл не выбран")
         self.hide()
         self.book_created.emit()
+
+    def _on_search(self):
+        query = self.search_input.text().strip()
+        if not query:
+            return
+        from data.book_search import search_open_library
+
+        try:
+            results = search_open_library(query)
+        except Exception as exc:
+            self.search_results.clear()
+            self.search_results.addItem(f"Ошибка поиска: {exc}")
+            self.search_results.setVisible(True)
+            self._search_results_data = []
+            return
+
+        self._search_results_data = results
+        self.search_results.clear()
+        for result in results:
+            label = result["title"]
+            if result["author"]:
+                label += f" — {result['author']}"
+            self.search_results.addItem(label)
+        self.search_results.setVisible(bool(results))
+
+    def _on_pick_search_result(self, item):
+        index = self.search_results.row(item)
+        result = self._search_results_data[index]
+        self.book_title_input.setText(result["title"])
+        if result["author"]:
+            self.book_author_input.setText(result["author"])
+        self.search_results.setVisible(False)
 
     def _on_create_note(self):
         title = self.note_title_input.text().strip()
@@ -227,6 +311,7 @@ class StorageScreen(QWidget):
 
     notebook_opened = Signal(int)
     book_added = Signal()
+    book_deleted = Signal(int)
 
     def __init__(self):
         super().__init__()
@@ -242,7 +327,9 @@ class StorageScreen(QWidget):
         filter_strip.setLayout(self.filter_row)
 
         self.grid_container = QWidget()
-        self.grid_layout = FlowLayout(self.grid_container, margin=4, h_spacing=CELL_GAP, v_spacing=CELL_GAP)
+        self.grid_layout = FlowLayout(
+            self.grid_container, margin=4, h_spacing=CELL_GAP, v_spacing=CELL_GAP
+        )
 
         self.grid_scroll = QScrollArea()
         self.grid_scroll.setWidgetResizable(True)
@@ -280,13 +367,17 @@ class StorageScreen(QWidget):
         for name in names:
             chip = CategoryChip(name)
             chip.set_active(name == self._active_filter)
-            chip.clicked.connect(lambda _checked=False, n=name: self._on_filter_selected(n))
+            chip.clicked.connect(
+                lambda _checked=False, n=name: self._on_filter_selected(n)
+            )
             self.filter_row.addWidget(chip)
 
             if name not in ("Заметки", "Без категории"):
                 remove_button = QPushButton("✕")
                 remove_button.setFixedSize(22, 22)
-                remove_button.clicked.connect(lambda _checked=False, n=name: self._on_remove_category(n))
+                remove_button.clicked.connect(
+                    lambda _checked=False, n=name: self._on_remove_category(n)
+                )
                 self.filter_row.addWidget(remove_button)
 
         add_chip = QPushButton("+ категория")
@@ -339,7 +430,9 @@ class StorageScreen(QWidget):
         else:
             from ui.screens.library_screen import BookCard
 
-            target = None if self._active_filter == "Без категории" else self._active_filter
+            target = (
+                None if self._active_filter == "Без категории" else self._active_filter
+            )
             category_names = self._state.all_category_names()
             for book in self._state.books:
                 name = self._state.category_of(book)
@@ -347,6 +440,7 @@ class StorageScreen(QWidget):
                 if matches:
                     card = BookCard(book, category_names)
                     card.category_set.connect(self._on_book_category_set)
+                    card.delete_requested.connect(self._on_delete_book)
                     self.grid_layout.addWidget(card)
                     self._cells.append(card)
 
@@ -357,8 +451,10 @@ class StorageScreen(QWidget):
         self.add_modal.show_modal()
 
     def _on_book_created(self):
+        self._state.load_categories()
         self._state.load_books()
         self.book_added.emit()
+        self._rebuild_filters()
         self._rebuild_grid()
 
     def _on_note_created(self):
@@ -368,10 +464,30 @@ class StorageScreen(QWidget):
     def _on_book_category_set(self, book_id: int, category_name: str | None):
         category_id = None
         if category_name is not None:
-            category = next((c for c in self._state.categories if c.name == category_name), None)
+            category = next(
+                (c for c in self._state.categories if c.name == category_name), None
+            )
             category_id = category.id if category else None
         self._state.set_book_category(book_id, category_id)
         self._rebuild_filters()
+        self._rebuild_grid()
+
+    def _on_delete_book(self, book_id: int):
+        from PySide6.QtWidgets import QMessageBox
+        from data.db import delete_book
+
+        book = self._state.book_by_id(book_id)
+        title = book.title if book else "эту книгу"
+        reply = QMessageBox.question(
+            self,
+            "Удалить книгу?",
+            f'"{title}" и весь прогресс чтения будут удалены без возможности восстановления. Продолжить?',
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        delete_book(book_id)
+        self._state.load_books()
+        self.book_deleted.emit(book_id)
         self._rebuild_grid()
 
     def _on_delete_notebook(self, notebook_id: int):
