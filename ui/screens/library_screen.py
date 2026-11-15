@@ -15,7 +15,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ui.styles import hue_for
+from data.app_settings import load_settings
+from ui.styles import hue_for, text_primary_for, text_secondary_for
 from ui.widgets.carousel import Carousel
 from ui.widgets.icon_button import CircleIconButton
 
@@ -34,14 +35,17 @@ class CategoryStripItem(QPushButton):
         self._apply_style()
 
     def _apply_style(self):
+        theme_id = load_settings()["theme"]
         if self._active:
+            color = text_primary_for(theme_id)
             self.setStyleSheet(
-                "QPushButton { background: transparent; border: none; color: white;"
+                f"QPushButton {{ background: transparent; border: none; color: {color};"
                 " font-family: Georgia, serif; font-size: 17px; }"
             )
         else:
+            color = text_secondary_for(theme_id)
             self.setStyleSheet(
-                "QPushButton { background: transparent; border: none; color: #475569;"
+                f"QPushButton {{ background: transparent; border: none; color: {color};"
                 " font-family: Georgia, serif; font-size: 13px; }"
             )
 

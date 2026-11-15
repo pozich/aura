@@ -17,6 +17,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from data.app_settings import load_settings
+from ui.styles import overlay_tint, text_primary_for, text_secondary_for
 from ui.widgets.flow_layout import FlowLayout
 from ui.widgets.icon_button import CircleIconButton
 from ui.widgets.modal import ModalOverlay
@@ -200,19 +202,22 @@ class AddItemModal(ModalOverlay):
     def _switch_tab(self, tab: str):
         self.book_panel.setVisible(tab == "book")
         self.note_panel.setVisible(tab == "note")
+        theme_id = load_settings()["theme"]
         for button, active in (
             (self.book_tab, tab == "book"),
             (self.note_tab, tab == "note"),
         ):
             if active:
+                color = text_primary_for(theme_id)
                 button.setStyleSheet(
-                    "QPushButton { background-color: rgba(255,255,255,0.16);"
-                    " border: 1px solid rgba(255,255,255,0.26); color: white; font-weight: 600; }"
+                    f"QPushButton {{ background-color: {overlay_tint(theme_id, 0.16)};"
+                    f" border: 1px solid {overlay_tint(theme_id, 0.26)}; color: {color}; font-weight: 600; }}"
                 )
             else:
+                color = text_secondary_for(theme_id)
                 button.setStyleSheet(
-                    "QPushButton { background-color: rgba(255,255,255,0.06);"
-                    " border: 1px solid rgba(255,255,255,0.14); color: #94a3b8; font-weight: 400; }"
+                    f"QPushButton {{ background-color: {overlay_tint(theme_id, 0.06)};"
+                    f" border: 1px solid {overlay_tint(theme_id, 0.14)}; color: {color}; font-weight: 400; }}"
                 )
 
     def _on_pick_file(self):

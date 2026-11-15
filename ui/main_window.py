@@ -24,6 +24,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(APP_NAME)
+        self.setMinimumSize(1600, 900)
         self.resize(1600, 900)
 
         self.state = AppState()
@@ -53,6 +54,7 @@ class MainWindow(QMainWindow):
 
         self.chat_screen = ChatScreen(self.state)
         self.settings_screen = SettingsScreen(self.state)
+        self.settings_screen.appearance_changed.connect(self._refresh_open_books)
 
         self.screens = {
             "library": self.library_screen,
@@ -81,15 +83,28 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self._fade_anim = None
+        self._history: list[str] = []
         self.show_screen("library")
 
-    def show_screen(self, name: str):
+    def show_screen(self, name: str, *, record: bool = True):
+        current = self.state.current_screen
+        # Каждый переход запоминает, откуда пришли — "Назад" потом разматывает это
+        # по одному шагу, а не прыгает в фиксированный экран. record=False — это сам
+        # шаг "назад", его в историю класть не нужно, иначе он тут же сам себя перебьёт.
+        if record and current and current != name:
+            self._history.append(current)
         widget = self.screens[name]
         self.stack.setCurrentWidget(widget)
         self.nav.set_active(name)
         self.state.current_screen = name
         widget.setFocus()
         self._fade_in(widget)
+
+    def go_back(self):
+        """-1 уровень вложенности. Если истории нет (самый первый экран сессии или
+        уже размотали всё) — падаем на Библиотеку, она всегда самый нижний уровень."""
+        target = self._history.pop() if self._history else "library"
+        self.show_screen(target, record=False)
 
     def _fade_in(self, widget):
         effect = QGraphicsOpacityEffect(widget)
@@ -141,6 +156,18 @@ class MainWindow(QMainWindow):
         if tab_id in self.nav.tab_ids():
             self.close_tab(tab_id)
 
+    def _refresh_open_books(self):
+        # Вкладка книги — долгоживущий виджет (переиспользуется, пока её не закрыть),
+        # поэтому смена темы/шрифта в Настройках сама по себе до неё не доходит —
+        # нужно явно подтолкнуть уже открытые вкладки перечитать настройки. NavBar и
+        # Библиотека задают часть своих цветов напрямую на виджетах (а не через
+        # глобальный QSS-каскад apply_theme), поэтому их тоже нужно подтолкнуть явно.
+        for screen in self.screens.values():
+            if isinstance(screen, BookScreen):
+                screen.refresh_appearance()
+        self.nav.refresh_appearance()
+        self.library_screen.refresh(self.state)
+
     def cycle_tab(self, direction: int):
         ids = self.nav.tab_ids()
         if not ids:
@@ -154,7 +181,7 @@ class MainWindow(QMainWindow):
 
         keys = self.state.keys
         if matches(event, "nav_library", keys):
-            self.show_screen("library")
+            self.go_back()
         elif matches(event, "nav_storage", keys):
             self.show_screen("storage")
         elif matches(event, "nav_settings", keys):

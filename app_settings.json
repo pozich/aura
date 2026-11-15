@@ -1,6 +1,6 @@
 {
   "theme": "navy",
-  "font_size": 20,
-  "font_family": "system",
+  "font_size": 16,
+  "font_family": "Roboto",
   "custom_fonts": []
 }

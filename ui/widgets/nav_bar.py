@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QFontMetrics
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
+from data.app_settings import load_settings
+from ui.styles import text_primary_for, text_secondary_for
 from ui.widgets.icon_button import CircleIconButton
 
 KIND_ICON = {
@@ -15,9 +17,9 @@ KIND_ICON = {
     "notes": "✎",
 }
 
-WIDTH_PADDING = 20
-ACTIVE_COLOR = "white"
-INACTIVE_COLOR = "#64748b"
+# Небольшой "воздух" вокруг точного размера содержимого — иначе текст в вкладке
+# визуально упирается в края.
+WIDTH_PADDING = 16
 
 
 class NavTab(QFrame):
@@ -30,7 +32,6 @@ class NavTab(QFrame):
         label: str,
         kind: str,
         closable: bool = False,
-        fixed_width: int | None = None,
         parent=None,
     ):
         super().__init__(parent)
@@ -43,8 +44,13 @@ class NavTab(QFrame):
         # что была с цветом текста кнопок)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setFrameShadow(QFrame.Shadow.Plain)
-        if fixed_width is not None:
-            self.setFixedWidth(fixed_width)
+        # Preferred-политика позволяет Qt растягивать вкладку сверх её sizeHint, когда
+        # в layout'е NavBar остаётся свободное место — хвостовой addStretch() при
+        # нулевых stretch-факторах делит этот излишек ПОПОЛАМ с любым Preferred-виджетом
+        # вместо того, чтобы забрать его целиком. Это и раздувало вкладку открытой
+        # книги на весь хвост навбара даже у короткого названия вроде "Лолита".
+        # Fixed держит вкладку ровно по её собственному содержимому.
+        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
@@ -55,7 +61,6 @@ class NavTab(QFrame):
 
         self.text_label = QLabel(label)
         layout.addWidget(self.text_label)
-        layout.addStretch()
 
         if closable:
             close_button = CircleIconButton("close", size=18)
@@ -64,6 +69,7 @@ class NavTab(QFrame):
             layout.addWidget(close_button)
 
         self._active = False
+        self._refresh_width()
         self._apply_style()
 
     def mousePressEvent(self, event):
@@ -72,18 +78,30 @@ class NavTab(QFrame):
 
     def set_text(self, label: str):
         self.text_label.setText(label)
+        self._refresh_width()
 
-    def bold_size_hint_width(self) -> int:
-        """Ширина с учётом жирного начертания активного состояния — обычный sizeHint()
-        меряет текст обычным весом, который у'же, и жирный текст при переключении
-        на активную вкладку не помещался и обрезался."""
+    def _bold_stable_width(self) -> int:
+        """Ширина ровно по содержимому (иконка + текст + крестик, если есть), но
+        считается по ЖИРНОМУ начертанию текста — активное состояние красит текст
+        жирным, и если мерить обычным весом, вкладка при активации слегка "дёргается"
+        вширь. Так ширина одна и та же в обоих состояниях."""
         normal_font = self.text_label.font()
         text = self.text_label.text()
         normal_width = QFontMetrics(normal_font).horizontalAdvance(text)
         bold_font = QFont(normal_font)
         bold_font.setBold(True)
         bold_width = QFontMetrics(bold_font).horizontalAdvance(text)
-        return self.sizeHint().width() + (bold_width - normal_width)
+        return self.sizeHint().width() + max(bold_width - normal_width, 0) + WIDTH_PADDING
+
+    def _refresh_width(self):
+        self.setFixedWidth(self._bold_stable_width())
+
+    def refresh_appearance(self):
+        """Шрифт/тема сменились в Настройках — размер вкладки посчитан под старый
+        шрифт и либо обрезает новый текст (крупнее прежнего), либо остаётся раздутым
+        (мельче прежнего). Пересчитываем и ширину, и цвета разом."""
+        self._refresh_width()
+        self._apply_style()
 
     def set_active(self, active: bool):
         self._active = active
@@ -99,7 +117,8 @@ class NavTab(QFrame):
         self.style().unpolish(self)
         self.style().polish(self)
 
-        color = ACTIVE_COLOR if self._active else INACTIVE_COLOR
+        theme_id = load_settings()["theme"]
+        color = text_primary_for(theme_id) if self._active else text_secondary_for(theme_id)
         weight = "600" if self._active else "400"
         self.text_label.setStyleSheet(
             f"color: {color}; font-weight: {weight}; background: transparent;"
@@ -147,15 +166,11 @@ class NavBar(QWidget):
             for tab_id, label in self.FIXED_TABS
         ]
 
-        # ширина — по реальному замеру (жирным, как в активном состоянии), не на глаз:
-        # у "Чат" вкладка своя (короче), у остальных трёх — общая, по самой широкой из них
-        group_width = max(
-            tab.bold_size_hint_width() for tab_id, tab in tabs if tab_id != "chat"
-        ) + WIDTH_PADDING
-        chat_width = dict(tabs)["chat"].bold_size_hint_width() + WIDTH_PADDING
-
+        # Каждая вкладка сама считает себе ширину ровно по своему тексту (см.
+        # NavTab._bold_stable_width) — раньше у "Библиотека/Хранилище/Настройки" была
+        # общая ширина по самой широкой из них, из-за чего при смене шрифта/размера
+        # соседние вкладки либо обрезали текст, либо стояли с лишним пустым местом.
         for tab_id, tab in tabs:
-            tab.setFixedWidth(chat_width if tab_id == "chat" else group_width)
             tab.clicked.connect(self.tab_selected.emit)
             tab.close_requested.connect(self.tab_closed.emit)
             self._tabs[tab_id] = tab
@@ -196,6 +211,14 @@ class NavBar(QWidget):
     def set_active(self, tab_id: str):
         for tid, tab in self._tabs.items():
             tab.set_active(tid == tab_id)
+
+    def refresh_appearance(self):
+        # Цвет текста вкладок задаётся напрямую на QLabel (см. NavTab._apply_style), а
+        # ширина — фиксируется под конкретный шрифт (см. NavTab._bold_stable_width).
+        # Ни то, ни другое не входит в глобальный каскад apply_theme — при смене темы
+        # или шрифта/размера в Настройках оба нужно пересчитать явно.
+        for tab in self._tabs.values():
+            tab.refresh_appearance()
 
     def tab_ids(self) -> list[str]:
         return list(self._tabs.keys())

@@ -56,9 +56,6 @@ class ChatFooter(QFrame):
         context_row.addWidget(self.context_label, 1)
         context_row.addWidget(clear_context_button)
 
-        self.token_label = QLabel("Токенов за сессию: 0")
-        self.token_label.setProperty("role", "muted")
-
         self.toggle_button = QPushButton("▴")
         self.toggle_button.setFixedSize(28, 28)
         self.toggle_button.clicked.connect(self._toggle)
@@ -77,14 +74,9 @@ class ChatFooter(QFrame):
         input_row.addWidget(self.input_field)
         input_row.addWidget(self.send_button)
 
-        top_row = QHBoxLayout()
-        top_row.addStretch()
-        top_row.addWidget(self.token_label)
-
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 6, 20, 10)
         layout.setSpacing(4)
-        layout.addLayout(top_row)
         layout.addWidget(self.message_list)
         layout.addLayout(context_row)
         layout.addLayout(input_row)
@@ -157,7 +149,7 @@ class ChatFooter(QFrame):
         parts.append(f"Пользователь: {new_message}")
         return "\n\n".join(parts)
 
-    def _on_reply(self, text: str, usage: dict):
+    def _on_reply(self, text: str, _usage: dict):
         self._thread = None
         self._remove_thinking_item()
 
@@ -166,9 +158,7 @@ class ChatFooter(QFrame):
         reply = text.strip()
         add_chat_message("assistant", reply)
         self._state.msgs.append({"text": reply, "me": False})
-        self._state.add_token_usage(usage.get("total_tokens", 0))
         self._refresh()
-        self._update_token_label()
         self.message_sent.emit()
 
         self.send_button.setEnabled(True)
@@ -191,10 +181,6 @@ class ChatFooter(QFrame):
                 self.message_list.takeItem(row)
             self._thinking_item = None
 
-    def refresh(self):
-        self._refresh()
-        self._update_token_label()
-
     def _refresh(self):
         self.message_list.clear()
         for msg in self._state.msgs:
@@ -202,9 +188,6 @@ class ChatFooter(QFrame):
             self.message_list.addItem(prefix + msg["text"])
         if self.message_list.count():
             self.message_list.scrollToBottom()
-
-    def _update_token_label(self):
-        self.token_label.setText(f"Токенов за сессию: {self._state.token_usage}")
 
     def focus_input(self):
         self.input_field.setFocus()
