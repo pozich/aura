@@ -7,29 +7,33 @@ class GeminiThread(QThread):
     succeeded = Signal(str, dict)
     failed = Signal(str)
 
-    def __init__(self, prompt: str, model: str | None = None, parent=None):
+    def __init__(self, prompt: str, model: str | None = None, api_key: str | None = None, parent=None):
         super().__init__(parent)
         self._prompt = prompt
         self._model = model
+        self._api_key = api_key
 
     def run(self):
         from core.gemini_client import DEFAULT_MODEL, GeminiError, generate
 
         try:
-            text, usage = generate(self._prompt, model=self._model or DEFAULT_MODEL)
+            text, usage = generate(self._prompt, model=self._model or DEFAULT_MODEL, api_key=self._api_key)
         except GeminiError as exc:
             self.failed.emit(str(exc))
             return
         self.succeeded.emit(text, usage)
 
 
-def ask_gemini_async(prompt: str, on_success, on_error, model: str | None = None, parent=None):
+def ask_gemini_async(prompt: str, on_success, on_error, model: str | None = None, api_key: str | None = None, parent=None):
     """Запускает запрос к Gemini в фоновом потоке — блокирующий сетевой вызов не должен
     морозить интерфейс на несколько секунд. on_success(text, usage) и on_error(message)
     вызываются уже в основном потоке (через сигналы Qt, это безопасно). Вызывающая
     сторона ОБЯЗАНА держать возвращённый QThread в поле экземпляра (не в локальной
-    переменной) — иначе Python может собрать его сборщиком мусора до завершения потока."""
-    thread = GeminiThread(prompt, model, parent)
+    переменной) — иначе Python может собрать его сборщиком мусора до завершения потока.
+
+    api_key — проверить конкретный ключ (например, ещё не сохранённый), а не тот,
+    что сейчас активен в БД."""
+    thread = GeminiThread(prompt, model, api_key, parent)
     thread.succeeded.connect(on_success)
     thread.failed.connect(on_error)
     thread.start()

@@ -1,0 +1,108 @@
+{
+  "nav_library": {
+    "key": 16777216,
+    "ctrl": false,
+    "shift": false,
+    "label": "Назад"
+  },
+  "nav_storage": {
+    "key": 69,
+    "ctrl": false,
+    "shift": false,
+    "label": "Листать вверх"
+  },
+  "nav_settings": {
+    "key": 16777249,
+    "ctrl": true,
+    "shift": false,
+    "label": "Листать вниз",
+    "alt": false
+  },
+  "library_prev_book": {
+    "key": 16777234,
+    "ctrl": false,
+    "shift": false,
+    "label": "Библиотека: предыдущая книга"
+  },
+  "library_next_book": {
+    "key": 16777236,
+    "ctrl": false,
+    "shift": false,
+    "label": "Библиотека: следующая книга"
+  },
+  "library_prev_category": {
+    "key": 16777235,
+    "ctrl": false,
+    "shift": false,
+    "label": "Библиотека: предыдущая категория"
+  },
+  "library_next_category": {
+    "key": 16777237,
+    "ctrl": false,
+    "shift": false,
+    "label": "Библиотека: следующая категория"
+  },
+  "library_open": {
+    "key": 32,
+    "ctrl": false,
+    "shift": false,
+    "label": "Библиотека: читать"
+  },
+  "storage_left": {
+    "key": 16777234,
+    "ctrl": false,
+    "shift": false,
+    "label": "Хранилище: курсор влево"
+  },
+  "storage_right": {
+    "key": 16777236,
+    "ctrl": false,
+    "shift": false,
+    "label": "Хранилище: курсор вправо"
+  },
+  "storage_up": {
+    "key": 16777235,
+    "ctrl": false,
+    "shift": false,
+    "label": "Хранилище: курсор вверх"
+  },
+  "storage_down": {
+    "key": 16777237,
+    "ctrl": false,
+    "shift": false,
+    "label": "Хранилище: курсор вниз"
+  },
+  "storage_open": {
+    "key": 16777220,
+    "ctrl": false,
+    "shift": false,
+    "label": "Хранилище: открыть"
+  },
+  "storage_delete": {
+    "key": 16777223,
+    "ctrl": false,
+    "shift": false,
+    "label": "Хранилище: удалить заметку"
+  },
+  "tab_next": {
+    "key": 16777236,
+    "ctrl": false,
+    "shift": false,
+    "alt": true,
+    "label": "Следующая вкладка"
+  },
+  "tab_prev": {
+    "key": 16777234,
+    "ctrl": false,
+    "shift": false,
+    "alt": true,
+    "label": "Предыдущая вкладка"
+  },
+  "focus_chat": {
+    "key": 16777249,
+    "ctrl": true,
+    "shift": false,
+    "label": "Фокус на поле ввода чата",
+    "alt": false
+  }
+}

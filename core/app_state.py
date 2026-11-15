@@ -27,7 +27,6 @@ class AppState:
         self.back_screen = "library"
         self.msgs: list[dict] = []
         self.keys: dict[str, dict] = {}
-        self.token_usage = 0
 
     def load_keybindings(self):
         from data.keybindings import load_keybindings
@@ -48,9 +47,6 @@ class AppState:
             {"text": row["content"], "me": row["role"] == "user"}
             for row in db.list_chat_messages()
         ]
-
-    def add_token_usage(self, total: int):
-        self.token_usage += total
 
     def open_book(self, book_id: int) -> str:
         tab_id = f"book:{book_id}"

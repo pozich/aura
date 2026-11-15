@@ -38,27 +38,26 @@ def list_api_keys() -> list[sqlite3.Row]:
     return rows
 
 
-def add_api_key(label: str, key: str, model_default: str | None = None) -> None:
+def get_api_key() -> str | None:
+    rows = list_api_keys()
+    return rows[0]["key"] if rows else None
+
+
+def set_api_key(key: str, model_default: str | None = None) -> None:
+    """Приложение поддерживает ровно один ключ — задать новый значит заменить старый."""
     conn = get_connection()
+    conn.execute("DELETE FROM api_keys")
     conn.execute(
-        "INSERT INTO api_keys (label, key, model_default, is_active) VALUES (?, ?, ?, 0)",
-        (label, key, model_default),
+        "INSERT INTO api_keys (label, key, model_default, is_active) VALUES (?, ?, ?, 1)",
+        ("Gemini API", key, model_default),
     )
     conn.commit()
     conn.close()
 
 
-def set_active_api_key(key_id: int) -> None:
+def delete_api_key() -> None:
     conn = get_connection()
-    conn.execute("UPDATE api_keys SET is_active = 0")
-    conn.execute("UPDATE api_keys SET is_active = 1 WHERE id = ?", (key_id,))
-    conn.commit()
-    conn.close()
-
-
-def delete_api_key(key_id: int) -> None:
-    conn = get_connection()
-    conn.execute("DELETE FROM api_keys WHERE id = ?", (key_id,))
+    conn.execute("DELETE FROM api_keys")
     conn.commit()
     conn.close()
 

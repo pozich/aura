@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from data.db import list_api_keys
@@ -23,20 +24,30 @@ def active_api_key() -> str | None:
     return None
 
 
-def generate(prompt: str, model: str = DEFAULT_MODEL) -> tuple[str, dict]:
+def generate(prompt: str, model: str = DEFAULT_MODEL, api_key: str | None = None) -> tuple[str, dict]:
     """Единый вызов Gemini generateContent. Возвращает (текст_ответа, usage), где
     usage — {"prompt_tokens", "response_tokens", "total_tokens"} из самого ответа API
     (не оценка, а то, что реально посчитал Gemini). Бросает GeminiError с понятной
     причиной при любой проблеме — дальше решает вызывающий код: автотег жанра просто
-    печатает причину в консоль и продолжает, чат — показывает ошибку пользователю."""
-    api_key = active_api_key()
+    печатает причину в консоль и продолжает, чат — показывает ошибку пользователю.
+
+    api_key — если передан явно, используется вместо активного ключа из БД. Нужно,
+    чтобы проверить ключ ДО сохранения (settings_screen так и не даёт сохранить
+    ключ, который реально не отвечает)."""
+    api_key = api_key or active_api_key()
     if not api_key:
         raise GeminiError(
             "Нет активного API-ключа. Настройки → API-ключи → дважды кликни по нужному,"
             " чтобы сделать его активным."
         )
+    if not api_key.isascii():
+        # Ключ Gemini всегда ASCII — если тут кириллица/мусор, это гарантированно не
+        # рабочий ключ. Раньше такой ключ не возвращал понятную ошибку, а ронял весь
+        # QThread: urllib пытается закодировать строку запроса в ascii и падает с
+        # UnicodeEncodeError, который generate() не ловил.
+        raise GeminiError("Ключ содержит недопустимые символы — это не похоже на настоящий ключ Gemini.")
 
-    url = f"{API_URL.format(model=model)}?key={api_key}"
+    url = f"{API_URL.format(model=model)}?key={urllib.parse.quote(api_key, safe='')}"
     payload = json.dumps({"contents": [{"parts": [{"text": prompt}]}]}).encode("utf-8")
     request = urllib.request.Request(
         url, data=payload, headers={"Content-Type": "application/json"}, method="POST"
@@ -52,6 +63,8 @@ def generate(prompt: str, model: str = DEFAULT_MODEL) -> tuple[str, dict]:
         raise GeminiError(f"Не удалось связаться с Gemini: {exc.reason}") from exc
     except TimeoutError as exc:
         raise GeminiError("Gemini не ответил за 30 секунд (таймаут)") from exc
+    except (UnicodeError, ValueError) as exc:
+        raise GeminiError(f"Некорректный ключ или запрос: {exc}") from exc
     except OSError as exc:
         raise GeminiError(f"Сетевая ошибка при обращении к Gemini: {exc}") from exc
 
@@ -66,4 +79,9 @@ def generate(prompt: str, model: str = DEFAULT_MODEL) -> tuple[str, dict]:
         "response_tokens": usage_meta.get("candidatesTokenCount", 0),
         "total_tokens": usage_meta.get("totalTokenCount", 0),
     }
+
+    from core.usage_tracker import log_call
+
+    log_call(model, tokens=usage["total_tokens"])
+
     return text, usage

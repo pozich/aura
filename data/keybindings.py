@@ -8,9 +8,9 @@ from PySide6.QtCore import Qt
 KEYBINDINGS_PATH = Path(__file__).parent.parent / "keybindings.json"
 
 DEFAULT_KEYS: dict[str, dict] = {
-    "nav_library": {"key": Qt.Key.Key_Escape.value, "ctrl": False, "shift": False, "label": "Перейти в библиотеку"},
-    "nav_storage": {"key": Qt.Key.Key_E.value, "ctrl": False, "shift": False, "label": "Перейти в хранилище"},
-    "nav_settings": {"key": Qt.Key.Key_C.value, "ctrl": False, "shift": False, "label": "Перейти в настройки"},
+    "nav_library": {"key": Qt.Key.Key_Escape.value, "ctrl": False, "shift": False, "label": "Назад"},
+    "nav_storage": {"key": Qt.Key.Key_E.value, "ctrl": False, "shift": False, "label": "Листать вверх"},
+    "nav_settings": {"key": Qt.Key.Key_C.value, "ctrl": False, "shift": False, "label": "Листать вниз"},
     "library_prev_book": {"key": Qt.Key.Key_Left.value, "ctrl": False, "shift": False, "label": "Библиотека: предыдущая книга"},
     "library_next_book": {"key": Qt.Key.Key_Right.value, "ctrl": False, "shift": False, "label": "Библиотека: следующая книга"},
     "library_prev_category": {"key": Qt.Key.Key_Up.value, "ctrl": False, "shift": False, "label": "Библиотека: предыдущая категория"},

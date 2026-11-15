@@ -42,3 +42,19 @@ def seconds_until_reset() -> int:
 
 def remaining_today(daily_limit: int, model: str | None = None) -> int:
     return max(0, daily_limit - calls_today(model))
+
+
+def tokens_today(model: str | None = None) -> int:
+    # Настоящий дневной лимит бесплатного тарифа Gemini нигде не отдаётся по API,
+    # поэтому честно показываем расход за сегодня, а не выдуманный "остаток из X" —
+    # придумывать число лимита означало бы врать пользователю цифрой, которую мы
+    # на самом деле не знаем.
+    conn = get_connection()
+    query = "SELECT COALESCE(SUM(tokens), 0) FROM usage_log WHERE called_at >= ?"
+    params: list = [_today_start_utc()]
+    if model:
+        query += " AND model = ?"
+        params.append(model)
+    total = conn.execute(query, params).fetchone()[0]
+    conn.close()
+    return total
