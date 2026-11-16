@@ -83,11 +83,10 @@ def _clean_chapter_text(soup: BeautifulSoup) -> str:
         if not text:
             continue
         if re.fullmatch(r"\d+", text):
-            continue  # голый номер страницы/сноски — не абзац
+            continue
         paragraphs.append(text)
 
     if not paragraphs:
-        # запасной вариант на случай эпаба без <p> вообще (редко, но бывает)
         raw = soup.get_text(separator="\n")
         paragraphs = [line.strip() for line in raw.splitlines() if line.strip()]
 

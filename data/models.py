@@ -37,22 +37,8 @@ class Chapter:
     title: Optional[str]
     text: str
     page_start: Optional[int]
-    audio_path: Optional[str] = None
-    duration_sec: Optional[int] = None
     complexity_score: Optional[float] = None
     ai_status: Status = "pending"
-    tts_status: Status = "pending"
-
-
-@dataclass
-class ChapterSegment:
-    id: Optional[int]
-    chapter_id: int
-    idx: int
-    char_start: int
-    char_end: int
-    start_time_ms: int
-    end_time_ms: int
 
 
 @dataclass

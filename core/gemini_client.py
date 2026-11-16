@@ -41,10 +41,6 @@ def generate(prompt: str, model: str = DEFAULT_MODEL, api_key: str | None = None
             " чтобы сделать его активным."
         )
     if not api_key.isascii():
-        # Ключ Gemini всегда ASCII — если тут кириллица/мусор, это гарантированно не
-        # рабочий ключ. Раньше такой ключ не возвращал понятную ошибку, а ронял весь
-        # QThread: urllib пытается закодировать строку запроса в ascii и падает с
-        # UnicodeEncodeError, который generate() не ловил.
         raise GeminiError("Ключ содержит недопустимые символы — это не похоже на настоящий ключ Gemini.")
 
     url = f"{API_URL.format(model=model)}?key={urllib.parse.quote(api_key, safe='')}"

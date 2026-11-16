@@ -108,7 +108,7 @@ class ChatFooter(QFrame):
 
     def _on_send(self):
         if self._thread is not None:
-            return  # запрос уже летит, не дублируем
+            return
         text = self.input_field.text().strip()
         if not text:
             return

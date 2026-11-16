@@ -68,8 +68,6 @@ class MainWindow(QMainWindow):
         self.library_screen.refresh(self.state)
         self.storage_screen.refresh(self.state)
 
-        # чат — футер: всегда внизу, во всю ширину, виден на любом экране. ChatScreen —
-        # только история, ввод только здесь (иначе было два поля ввода одновременно).
         self.chat_footer = ChatFooter(self.state)
         self.chat_footer.message_sent.connect(self.chat_screen.refresh)
 
@@ -77,9 +75,9 @@ class MainWindow(QMainWindow):
         central_layout = QVBoxLayout(central)
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
-        central_layout.addWidget(self.nav)          # header
-        central_layout.addWidget(self.stack, 1)      # body
-        central_layout.addWidget(self.chat_footer)   # footer
+        central_layout.addWidget(self.nav)
+        central_layout.addWidget(self.stack, 1)
+        central_layout.addWidget(self.chat_footer)
         self.setCentralWidget(central)
 
         self._fade_anim = None
@@ -88,9 +86,6 @@ class MainWindow(QMainWindow):
 
     def show_screen(self, name: str, *, record: bool = True):
         current = self.state.current_screen
-        # Каждый переход запоминает, откуда пришли — "Назад" потом разматывает это
-        # по одному шагу, а не прыгает в фиксированный экран. record=False — это сам
-        # шаг "назад", его в историю класть не нужно, иначе он тут же сам себя перебьёт.
         if record and current and current != name:
             self._history.append(current)
         widget = self.screens[name]
@@ -157,11 +152,6 @@ class MainWindow(QMainWindow):
             self.close_tab(tab_id)
 
     def _refresh_open_books(self):
-        # Вкладка книги — долгоживущий виджет (переиспользуется, пока её не закрыть),
-        # поэтому смена темы/шрифта в Настройках сама по себе до неё не доходит —
-        # нужно явно подтолкнуть уже открытые вкладки перечитать настройки. NavBar и
-        # Библиотека задают часть своих цветов напрямую на виджетах (а не через
-        # глобальный QSS-каскад apply_theme), поэтому их тоже нужно подтолкнуть явно.
         for screen in self.screens.values():
             if isinstance(screen, BookScreen):
                 screen.refresh_appearance()

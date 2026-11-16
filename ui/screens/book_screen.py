@@ -27,8 +27,6 @@ def _build_html(chapters, book_title: str, *, font_family: str, font_size: int, 
     это единственное место, где выбор шрифта/темы реально что-то читает: в отличие
     от хрома приложения, текст книги верстается вручную через HTML, а не через общий
     QSS-каскад."""
-    # Двойные кавычки вокруг имени шрифта обязательны: весь style — в одинарных
-    # ('...'), и font-family:'Georgia' тут же обрывал бы style на первой же '.
     style = f'font-family:"{font_family}"; font-size:{font_size}px; line-height:1.8; color:{text_color};'
     if not chapters:
         title = html.escape(book_title)
@@ -167,9 +165,6 @@ class BookScreen(QWidget):
 
         self.book_content.setStyleSheet(f"QTextEdit {{ background-color: {bg_color}; border: none; }}")
         chapters = list_chapters(self.book.id)
-        # setHtml() сбросил бы скролл на начало книги — запоминаем позицию и
-        # восстанавливаем её сразу после, иначе смена шрифта посреди чтения
-        # перебрасывала бы читателя на первую страницу.
         scrollbar = self.book_content.verticalScrollBar()
         scroll_pos = scrollbar.value()
         self.book_content.setHtml(
@@ -187,7 +182,7 @@ class BookScreen(QWidget):
 
     def _on_ask_in_chat(self):
         selected = self.book_content.textCursor().selectedText()
-        selected = selected.replace(" ", "\n").strip()  # QTextCursor хранит абзацы так
+        selected = selected.replace(" ", "\n").strip()
         if selected:
             self.context_requested.emit(selected)
 

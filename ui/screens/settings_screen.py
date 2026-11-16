@@ -27,12 +27,8 @@ from data.db import delete_api_key, get_api_key, set_api_key
 from data.keybindings import save_keybindings
 from ui.styles import THEME_LABELS, THEME_ORDER, apply_theme, resolve_font_family, text_secondary_for, theme_colors
 
-# Навигация — общеприложенческие действия, одна колонка.
 NAV_ACTIONS = ["nav_library", "tab_next", "tab_prev", "nav_storage", "nav_settings", "focus_chat"]
 
-# Библиотека и Хранилище управляются одной и той же логикой курсора — влево/вправо/вверх/
-# вниз/открыть. Таблица строит это явно: строка — роль действия, столбец — экран, а не
-# два независимых списка с дублирующимися по сути пунктами.
 SHARED_ROWS = [
     ("Влево", {"Библиотека": "library_prev_book", "Хранилище": "storage_left"}),
     ("Вправо", {"Библиотека": "library_next_book", "Хранилище": "storage_right"}),
@@ -45,10 +41,6 @@ SHARED_COLUMNS = ["Библиотека", "Хранилище"]
 
 ROW_HEIGHT = 40
 FONT_SIZES = [14, 16, 18, 20]
-# Roboto — первый и выбранный "с завода" (см. data/app_settings.DEFAULT_SETTINGS).
-# "system" — особый id: его метка не фиксирована, а подставляется в рантайме реальным
-# именем шрифта ОС (resolve_font_family), иначе было написано "Системный" вместо
-# того, что реально показывается.
 FONT_PRESETS = [
     ("Roboto", "Roboto"),
     ("Georgia", "Georgia"),
@@ -77,9 +69,6 @@ class KeyButton(QPushButton):
 
     def __init__(self, action_id: str, binding: dict, on_change, parent=None):
         super().__init__(_format_binding(binding), parent)
-        # Таблица квадратная, а дефолтная кнопка — со скруглёнными углами и своей
-        # рамкой, торчала отдельным "наклеенным" элементом поверх ячейки вместо того,
-        # чтобы быть самой ячейкой. role=table_cell делает её плоской и без рамки.
         self.setFlat(True)
         self.setProperty("role", "table_cell")
         self.action_id = action_id
@@ -283,9 +272,6 @@ class FontSizeTrack(QWidget):
         pen = QPen(QColor(self._muted))
         pen.setWidthF(2)
         painter.setPen(pen)
-        # Одна линия на каждый промежуток между соседними точками, а не один долгий
-        # штрихованный паттерн на весь трек — иначе в каждом промежутке видно по
-        # несколько мелких тире вместо одного.
         for i in range(self._count - 1):
             painter.drawLine(QPointF(self._dot_x(i), y), QPointF(self._dot_x(i + 1), y))
 
@@ -315,8 +301,6 @@ class FontSizeTrack(QWidget):
 
 
 class SettingsScreen(QWidget):
-    # Тема/размер/семейство шрифта поменялись — MainWindow слушает это, чтобы
-    # обновить уже открытые вкладки книг на лету, а не только при переоткрытии.
     appearance_changed = Signal()
 
     def __init__(self, state, parent=None):
@@ -342,17 +326,11 @@ class SettingsScreen(QWidget):
         columns.addLayout(self._build_font_column(), 1)
         columns.addLayout(self._build_nav_column(), 1)
         columns.addLayout(self._build_shared_column(), 1)
-        # Стрейч стоит на самой строке колонок (а не после тем) — она забирает всё
-        # свободное место, таблицы биндов внутри неё растягиваются вместе с ней, а
-        # блок тем остаётся прижатым к низу экрана, у плавающей панели чата.
         content_layout.addLayout(columns, 1)
 
         content_layout.addWidget(_separator())
         content_layout.addLayout(self._build_theme_row())
 
-        # контент выше по высоте, чем обычно нужно экрану — без скролл-области это тянуло
-        # за собой QStackedWidget.sizeHint() (он берёт максимум среди ВСЕХ вложенных
-        # экранов, даже скрытых), и всё окно раздувалось под Настройки.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
@@ -363,7 +341,6 @@ class SettingsScreen(QWidget):
 
         self._reload_api_keys()
 
-    # ---- Gemini API ----
 
     def _build_api_section(self) -> QWidget:
         section = QWidget()
@@ -372,8 +349,6 @@ class SettingsScreen(QWidget):
         layout.setSpacing(8)
         layout.addWidget(_section_label("Gemini API"))
 
-        # Приложению нужен ровно один ключ — без списка и выбора активного, одно поле
-        # на замену/очистку. Новое значение сразу перетирает старое в БД.
         self.key_input = QLineEdit()
         self.key_input.setPlaceholderText("AIza…")
 
@@ -391,10 +366,6 @@ class SettingsScreen(QWidget):
 
         layout.addLayout(input_row)
 
-        # Настоящий дневной лимит бесплатного тарифа Gemini нигде не отдаётся по
-        # API — показываем честный расход за сегодня и время сброса счётчика, а не
-        # придуманное число "осталось из X". Отдельной кнопки "Проверить" больше нет —
-        # сохранение (_on_save_key) само проверяет ключ живым запросом перед записью.
         usage_row = QHBoxLayout()
         self._usage_label = QLabel()
         self._usage_label.setProperty("role", "muted")
@@ -408,9 +379,6 @@ class SettingsScreen(QWidget):
         return section
 
     def _refresh_usage_label(self):
-        # Без сохранённого ключа расход токенов и время сброса считать не от чего —
-        # показывать "Токенов сегодня: 0 · сброс через ..." в этом случае бессмысленно
-        # и вводит в заблуждение, как будто ключ есть.
         if not get_api_key():
             self._usage_label.setText("")
             return
@@ -422,9 +390,6 @@ class SettingsScreen(QWidget):
         self._usage_label.setText(f"Токенов сегодня: {tokens_today()} · сброс через {hours}ч {minutes}м")
 
     def _reload_api_keys(self):
-        # Пока ключ уже сохранён — поле заблокировано (нечего тут случайно
-        # перезаписать), а кнопка работает как "Изменить": сперва разблокирует поле,
-        # и только повторный клик реально сохраняет новое значение.
         key = get_api_key()
         self._editing_key = not bool(key)
         self.key_input.setText(key or "")
@@ -445,9 +410,6 @@ class SettingsScreen(QWidget):
         if not key:
             return
 
-        # Сохранение теперь само проверяет ключ живым запросом к Gemini — нерабочий
-        # или несуществующий ключ в БД попасть не может в принципе, а не просто
-        # проверяется отдельной кнопкой "Проверить" уже ПОСЛЕ сохранения.
         from core.gemini_worker import ask_gemini_async
 
         self.key_input.setEnabled(False)
@@ -464,9 +426,6 @@ class SettingsScreen(QWidget):
 
     def _on_save_check_success(self, key: str, _usage: dict):
         set_api_key(key)
-        # И так срабатывало раньше — просто поле после сохранения показывало тот же
-        # текст и выглядело так, будто кнопка ничего не делает. Коротко подсвечиваем
-        # кнопку, чтобы было видно, что ключ реально записан, прежде чем запереть поле.
         self._editing_key = False
         self.key_input.setText(key)
         self.key_input.setEnabled(False)
@@ -476,8 +435,6 @@ class SettingsScreen(QWidget):
         QTimer.singleShot(1200, self._reset_save_key_button)
 
     def _on_save_check_error(self, message: str):
-        # Ключ НЕ сохраняется — поле остаётся разблокированным, чтобы можно было
-        # сразу поправить значение, не открывая снова "Изменить".
         self.key_input.setEnabled(True)
         self._save_key_button.setEnabled(True)
         self._save_key_button.setText("Сохранить")
@@ -495,18 +452,12 @@ class SettingsScreen(QWidget):
         self._validity_label.setText("")
         self._refresh_usage_label()
 
-    # ---- Настройки шрифта ----
 
     def _build_font_column(self) -> QVBoxLayout:
         col = QVBoxLayout()
         col.setSpacing(10)
         col.addWidget(_section_label("Настройки шрифта"))
 
-        # Заголовок + полоска точек сгруппированы в один блок с более плотным
-        # внутренним интервалом (а не общим col.setSpacing(10)) — экономит
-        # вертикальное место, которое иначе отъедалось бы у списка шрифтов ниже.
-        # Подписи размеров рисуются самим FontSizeTrack ровно под своими точками —
-        # отдельным рядом QLabel'ов такое совпадение координат не гарантировать.
         size_block = QVBoxLayout()
         size_block.setSpacing(4)
         size_block.addWidget(QLabel("Размер шрифта"))
@@ -526,24 +477,10 @@ class SettingsScreen(QWidget):
         add_font_btn.clicked.connect(self._on_add_font)
         col.addWidget(add_font_btn)
 
-        # Список шрифтов — та же техника, что и у таблиц биндов справа (Stretch на
-        # вертикальном заголовке): строки сами сжимаются/растягиваются под любую
-        # выделенную им высоту, поэтому список всегда вписан в колонку и никогда не
-        # заводит ни свой, ни общий скролл экрана — независимо от числа пресетов/
-        # своих шрифтов и от текущего размера шрифта интерфейса.
         self.font_table = QTableWidget(0, 1)
         self.font_table.horizontalHeader().setVisible(False)
         self.font_table.verticalHeader().setVisible(False)
-        # Тот же ROW_HEIGHT, что и у таблиц биндов — без него Qt считает "естественную"
-        # высоту этой таблицы по фактическим (более мелким) размерам кнопок-строк, и
-        # колонка шрифта в целом просит меньше места, чем соседние колонки — при
-        # большом кегле/некоторых шрифтах реально нужной строкам высоты не остаётся,
-        # и список внутри себя всё равно начинал скроллиться.
         self.font_table.verticalHeader().setDefaultSectionSize(ROW_HEIGHT)
-        # Stretch и так сжимает строки под любую доступную высоту — единственное, что
-        # может потребовать скролл после этого, это округление "высота/число строк"
-        # на 1px, визуально незаметное. Явно выключаем полосу, чтобы такой огрызок не
-        # рисовался как "тут можно скроллить".
         self.font_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.font_table.setShowGrid(False)
         self.font_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -557,10 +494,6 @@ class SettingsScreen(QWidget):
         return col
 
     def _rebuild_font_list(self):
-        # setCellWidget() на уже занятой ячейке сам уничтожает старый виджет, но,
-        # как и layout.takeAt() раньше, делает это отложенно — старый виджет ещё
-        # виден и просвечивает под новым до следующего цикла событий. Снимаем явно,
-        # как и в прошлый раз с layout'ом.
         for row in range(self.font_table.rowCount()):
             old = self.font_table.cellWidget(row, 0)
             if old:
@@ -574,9 +507,6 @@ class SettingsScreen(QWidget):
         ] + [(f["id"], f["id"]) for f in self._settings["custom_fonts"]]
         custom_ids = {f["id"] for f in self._settings["custom_fonts"]}
 
-        # setRowCount сам освобождает cell-виджеты лишних строк (в отличие от
-        # layout.takeAt(), который снимал виджет с layout'а, но не с экрана сразу —
-        # отсюда была «призрачная» старая строка, просвечивающая под новой).
         self.font_table.setRowCount(len(entries))
         for row, (font_id, label) in enumerate(entries):
             is_active = font_id == self._settings["font_family"]
@@ -638,7 +568,6 @@ class SettingsScreen(QWidget):
         self._rebuild_font_list()
         self._persist_and_apply()
 
-    # ---- Горячие клавиши ----
 
     def _build_nav_column(self) -> QVBoxLayout:
         col = QVBoxLayout()
@@ -652,10 +581,6 @@ class SettingsScreen(QWidget):
         for row, action_id in enumerate(NAV_ACTIONS):
             button = KeyButton(action_id, self._state.keys[action_id], self._on_keybind_changed)
             self.nav_table.setCellWidget(row, 0, button)
-        # Раньше высота таблицы была фиксирована под число строк, а остаток колонки
-        # уходил в addStretch() пустым местом. Теперь таблица сама растягивается на
-        # всю колонку, а строки растягиваются вместе с ней (Stretch на вертикальном
-        # заголовке) — никакой пустоты под биндами.
         self.nav_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         col.addWidget(self.nav_table, 1)
         return col
@@ -684,7 +609,6 @@ class SettingsScreen(QWidget):
         self._state.keys[action_id] = binding
         save_keybindings(self._state.keys)
 
-    # ---- Тема ----
 
     def _build_theme_row(self) -> QVBoxLayout:
         col = QVBoxLayout()
@@ -729,12 +653,8 @@ class SettingsScreen(QWidget):
         self.size_track.set_colors(*self._current_track_colors())
         self._persist_and_apply()
 
-    # ---- общее ----
 
     def _persist_and_apply(self):
-        # Тема/размер/шрифт красят ВЕСЬ интерфейс, включая само окно Настроек —
-        # применяется сразу же. Плюс сигнал ниже — отдельно долетает до уже открытых
-        # вкладок книг, у них текст свёрстан вручную через HTML, а не через этот QSS.
         save_settings(self._settings)
         app = QApplication.instance()
         if app is not None:

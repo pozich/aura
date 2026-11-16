@@ -12,7 +12,7 @@ class CircleIconButton(QPushButton):
 
     def __init__(self, icon: str, size: int = 22, parent=None):
         super().__init__(parent)
-        self._icon = icon  # "close" | "tag" | "play" | "pause" | "stop" | "prev" | "next"
+        self._icon = icon
         self.setFixedSize(size, size)
         self.setFlat(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)

@@ -6,7 +6,6 @@ def test_schema_creates_all_tables(db_conn):
     expected = {
         "books",
         "chapters",
-        "chapter_segments",
         "notes",
         "notebooks",
         "chat_messages",

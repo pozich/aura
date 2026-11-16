@@ -32,9 +32,6 @@ class Carousel(QFrame):
         self.track.setFixedWidth(max(len(widgets), 1) * self.slot_width)
         for k, w in enumerate(widgets):
             w.setParent(self.track)
-            # до первого show() непривязанный виджет отдаёт дефолтный top-level размер
-            # (например 480 в высоту) вместо реального — adjustSize() пересчитывает его
-            # по sizeHint с учётом уже выставленных ограничений (fixedWidth и т.п.)
             w.adjustSize()
             w.move(
                 k * self.slot_width + (self.slot_width - w.width()) // 2,

@@ -1,12 +1,7 @@
 from __future__ import annotations
 
-# bg/bg2 — основной фон и фон вторичных поверхностей (навбар, активная вкладка).
-# accent/accent_hover — акцент (кнопки, прогресс-бар, выделение). light — тёмный или
-# светлый текст/подложки карточек нужны поверх фона (сейчас это только "cream").
 THEMES: dict[str, dict] = {
     "amoled": {"bg": "#000000", "bg2": "#111111", "accent": "#e5e5e5", "accent_hover": "#ffffff", "light": False},
-    # bg чуть темнее/желтее чистого "почти белого" f5f0e6 — иначе на обычном
-    # мониторе крем на глаз не отличить от белого фона.
     "cream": {"bg": "#efe3cc", "bg2": "#e4d4b4", "accent": "#8a6d3f", "accent_hover": "#a9875a", "light": True},
     "hunter": {"bg": "#16241c", "bg2": "#1d2f24", "accent": "#b89b5e", "accent_hover": "#cdb377", "light": False},
     "bordeaux": {"bg": "#2a1414", "bg2": "#341a1a", "accent": "#a97468", "accent_hover": "#c08e81", "light": False},
@@ -29,7 +24,7 @@ THEME_LABELS: dict[str, str] = {
 THEME_ORDER = ["navy", "hunter", "bordeaux", "tobacco", "graphite", "olive", "cream", "amoled"]
 
 DEFAULT_THEME = "navy"
-ACCENT_LIGHT = "#60a5fa"  # акцент-на-светлом (подпись "выбран" и т.п.) — не меняется по теме
+ACCENT_LIGHT = "#60a5fa"
 
 BOOK_HUES = [
     "#4c1d95",
@@ -83,10 +78,6 @@ def theme_colors(theme_id: str) -> dict:
     два согласованных значения вручную."""
     palette = dict(THEMES.get(theme_id, THEMES[DEFAULT_THEME]))
     palette["accent_light"] = _darken(palette["accent"], 0.3) if palette["light"] else _lighten(palette["accent"])
-    # Текст поверх ЗАЛИТОЙ акцентом кнопки (role="accent") — акцент сам по себе
-    # бывает и светлым (amoled: почти белый), и тёмным (navy: синий), поэтому ему
-    # нужен свой контрастный цвет текста, а не общий text_primary темы: раньше
-    # кнопка "Сохранить" на amoled красила почти белый текст на почти белый фон.
     palette["on_accent"] = "#141414" if _relative_luminance(palette["accent"]) > 150 else "#ffffff"
     return palette
 

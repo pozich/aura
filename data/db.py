@@ -24,8 +24,6 @@ def init_db() -> None:
     conn = get_connection()
     with open(SCHEMA_PATH, encoding="utf-8") as f:
         conn.executescript(f.read())
-    # schema.sql CREATE TABLE IF NOT EXISTS не трогает уже существующие таблицы —
-    # для новых колонок в уже созданной базе нужна явная миграция.
     _ensure_column(conn, "books", "source_path", "TEXT")
     conn.commit()
     conn.close()

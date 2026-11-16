@@ -12,8 +12,6 @@ def main():
     app = QApplication(sys.argv)
 
     settings = load_settings()
-    # QFontDatabase не переживает перезапуск процесса — свои шрифты, добавленные
-    # в прошлый раз через Настройки → Шрифт интерфейса, нужно зарегистрировать заново.
     for font in settings["custom_fonts"]:
         QFontDatabase.addApplicationFont(font["path"])
     family = None if settings["font_family"] == "system" else settings["font_family"]

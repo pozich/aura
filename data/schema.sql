@@ -21,25 +21,10 @@ CREATE TABLE IF NOT EXISTS chapters (
   title TEXT,
   text TEXT NOT NULL,
   page_start INTEGER,
-  audio_path TEXT,
-  duration_sec INTEGER,
   complexity_score REAL,
   ai_status TEXT NOT NULL DEFAULT 'pending' CHECK (
     ai_status IN ('pending', 'processing', 'done', 'error')
-  ),
-  tts_status TEXT NOT NULL DEFAULT 'pending' CHECK (
-    tts_status IN ('pending', 'processing', 'done', 'error')
   )
-);
-
-CREATE TABLE IF NOT EXISTS chapter_segments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  chapter_id INTEGER NOT NULL REFERENCES chapters (id) ON DELETE CASCADE,
-  idx INTEGER NOT NULL,
-  char_start INTEGER NOT NULL,
-  char_end INTEGER NOT NULL,
-  start_time_ms INTEGER NOT NULL,
-  end_time_ms INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS notes (

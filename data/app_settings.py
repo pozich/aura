@@ -9,10 +9,6 @@ DEFAULT_SETTINGS: dict = {
     "theme": "navy",
     "font_size": 16,
     "font_family": "Roboto",
-    # custom_fonts — шрифты, загруженные пользователем через "+ Добавить свой":
-    # [{"id": "Fira Sans", "path": "/abs/path/FiraSans.ttf"}]. Храним путь к файлу,
-    # чтобы перерегистрировать его в QFontDatabase при следующем запуске — сама
-    # регистрация в системе живёт только в рамках процесса и не переживает рестарт.
     "custom_fonts": [],
 }
 

@@ -17,8 +17,6 @@ KIND_ICON = {
     "notes": "✎",
 }
 
-# Небольшой "воздух" вокруг точного размера содержимого — иначе текст в вкладке
-# визуально упирается в края.
 WIDTH_PADDING = 16
 
 
@@ -38,18 +36,8 @@ class NavTab(QFrame):
         self.tab_id = tab_id
         self.setObjectName("NavTab")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        # на некоторых системных Qt-темах QFrame по умолчанию рисует свою собственную
-        # (скруглённую) рамку поверх QSS, если явно не сказать "без рамки" в коде —
-        # border: none в стиль-листе одной темой игнорировался (та же природа бага,
-        # что была с цветом текста кнопок)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setFrameShadow(QFrame.Shadow.Plain)
-        # Preferred-политика позволяет Qt растягивать вкладку сверх её sizeHint, когда
-        # в layout'е NavBar остаётся свободное место — хвостовой addStretch() при
-        # нулевых stretch-факторах делит этот излишек ПОПОЛАМ с любым Preferred-виджетом
-        # вместо того, чтобы забрать его целиком. Это и раздувало вкладку открытой
-        # книги на весь хвост навбара даже у короткого названия вроде "Лолита".
-        # Fixed держит вкладку ровно по её собственному содержимому.
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
@@ -108,11 +96,6 @@ class NavTab(QFrame):
         self._apply_style()
 
     def _apply_style(self):
-        # цвет задаётся напрямую на конкретном QLabel, а не через глобальный QSS-каскад
-        # с [active="true"] — на некоторых системных Qt-темах (Breeze/qt6ct/Kvantum)
-        # цвет текста плоских кнопок берётся из системной палитры в обход стиль-листа,
-        # и неактивные вкладки оставались светлыми. QLabel с явным setStyleSheet на
-        # конкретном экземпляре от этого не зависит.
         self.setProperty("active", self._active)
         self.style().unpolish(self)
         self.style().polish(self)
@@ -166,10 +149,6 @@ class NavBar(QWidget):
             for tab_id, label in self.FIXED_TABS
         ]
 
-        # Каждая вкладка сама считает себе ширину ровно по своему тексту (см.
-        # NavTab._bold_stable_width) — раньше у "Библиотека/Хранилище/Настройки" была
-        # общая ширина по самой широкой из них, из-за чего при смене шрифта/размера
-        # соседние вкладки либо обрезали текст, либо стояли с лишним пустым местом.
         for tab_id, tab in tabs:
             tab.clicked.connect(self.tab_selected.emit)
             tab.close_requested.connect(self.tab_closed.emit)
@@ -213,10 +192,6 @@ class NavBar(QWidget):
             tab.set_active(tid == tab_id)
 
     def refresh_appearance(self):
-        # Цвет текста вкладок задаётся напрямую на QLabel (см. NavTab._apply_style), а
-        # ширина — фиксируется под конкретный шрифт (см. NavTab._bold_stable_width).
-        # Ни то, ни другое не входит в глобальный каскад apply_theme — при смене темы
-        # или шрифта/размера в Настройках оба нужно пересчитать явно.
         for tab in self._tabs.values():
             tab.refresh_appearance()
 
