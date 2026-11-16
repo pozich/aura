@@ -34,52 +34,127 @@ def suggest_category(title: str, author: str | None, sample_text: str) -> str | 
     return tag or None
 
 
-def suggest_criteria_scores(
-    title: str, author: str | None, sample_text: str, criteria: list[str]
-) -> tuple[dict[str, float], str] | None:
-    """Просит Gemini оценить книгу по заданным критериям АХП (0-10 за каждый) —
-    используется для автозаполнения book_scores перед core.ahp.rank_books, чтобы не
-    выставлять оценки по каждой книге и критерию вручную. При отсутствии ключа или
-    сбое/неразборчивом ответе возвращает None, ранжирование при этом не падает."""
-    if not sample_text or not criteria:
+def _extract_json(text: str) -> dict | None:
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        print(f"[ai_metadata] не удалось найти JSON в ответе: {text!r}")
+        return None
+    try:
+        return json.loads(match.group(0))
+    except json.JSONDecodeError as exc:
+        print(f"[ai_metadata] не удалось разобрать JSON ответа: {exc}")
+        return None
+
+
+def extract_criteria_and_judgments(
+    query: str,
+) -> tuple[list[str], dict[tuple[str, str], float]] | None:
+    """Разбирает свободный текстовый запрос пользователя (тема + пожелания к книге)
+    на критерии АХП и попарную важность между ними — то, что при ручном вводе
+    пользователь выставлял бы сам. Саати-величина на каждую пару выводится Gemini
+    из того, как пользователь расставил акценты в тексте. При отсутствии ключа или
+    неразборчивом ответе возвращает None — вызывающий код (magic_query) просто не
+    выдаёт рекомендаций."""
+    if not query.strip():
         return None
 
     prompt = (
-        "Оцени книгу по каждому из критериев числом от 0 до 10 "
-        "(0 — совсем не соответствует, 10 — полностью соответствует). "
-        f"Критерии: {', '.join(criteria)}.\n"
-        "Ответь СТРОГО JSON-объектом без пояснений вокруг, с ключом \"объяснение\" — "
-        "короткое обоснование одним предложением на русском. Пример формата: "
-        '{"критерий1": 7, "критерий2": 4, "объяснение": "..."}\n\n'
-        f"Название: {title}\n"
-        f"Автор: {author or 'неизвестен'}\n"
-        f"Отрывок текста:\n{sample_text[:3000]}"
+        "Пользователь ищет книгу и описывает, что ему важно, свободным текстом. "
+        "Выдели 2-4 критерия подбора (тема/жанр — всегда один из них, плюс явные "
+        "пожелания вроде лёгкости чтения, объёма, настроения). Затем для каждой пары "
+        "критериев оцени, какой важнее и во сколько раз, по шкале Саати 1-9 "
+        "(1 — равны, 9 — значительно важнее), опираясь на то, как пользователь расставил "
+        "акценты в своём запросе.\n"
+        "Ответь СТРОГО JSON без пояснений вокруг, формата: "
+        '{"критерии": ["тема: ...", "..."], '
+        '"сравнения": [{"a": "критерий1", "b": "критерий2", "value": 3}, ...]}\n'
+        "В \"сравнения\" value > 1 означает, что a важнее b во столько раз; value < 1 "
+        "(например 1/3) — что b важнее. Названия критериев в \"сравнения\" должны "
+        "буквально совпадать со строками из \"критерии\".\n\n"
+        f"Запрос пользователя: {query}"
     )
 
     try:
         text, _usage = generate(prompt)
     except GeminiError as exc:
-        print(f"[ai_metadata] оценки по критериям не получены: {exc}")
+        print(f"[ai_metadata] критерии не получены: {exc}")
         return None
 
-    match = re.search(r"\{.*\}", text, re.DOTALL)
+    payload = _extract_json(text)
+    if payload is None:
+        return None
+
+    names = [str(name).strip() for name in payload.get("критерии", []) if str(name).strip()]
+    if not names:
+        return None
+
+    valid = set(names)
+    judgments: dict[tuple[str, str], float] = {}
+    for item in payload.get("сравнения", []):
+        a, b, value = item.get("a"), item.get("b"), item.get("value")
+        if a in valid and b in valid and a != b and isinstance(value, (int, float)) and value > 0:
+            judgments[(a, b)] = float(value)
+
+    return names, judgments
+
+
+def suggest_book_recommendations(
+    query: str, criteria: list[str], count: int = 5
+) -> list[dict] | None:
+    """Просит Gemini предложить реальные книги (не обязательно уже в библиотеке
+    пользователя) под запрос, с оценкой каждой по заданным критериям — эти оценки
+    потом сворачиваются весами критериев в итоговый балл в core.ahp.weighted_score.
+    При отсутствии ключа или неразборчивом ответе возвращает None."""
+    if not query.strip() or not criteria:
+        return None
+
+    prompt = (
+        f"Посоветуй {count} реальных существующих книг под запрос пользователя. "
+        f"Для каждой книги оцени её по каждому из критериев числом от 0 до 10 "
+        "(0 — совсем не соответствует, 10 — полностью соответствует) и дай короткое "
+        "описание в 1-2 предложения, почему она подходит под запрос.\n"
+        f"Критерии: {', '.join(criteria)}.\n"
+        "Ответь СТРОГО JSON-массивом без пояснений вокруг, формата: "
+        '[{"название": "...", "автор": "...", "описание": "...", '
+        '"оценки": {"критерий1": 7, "критерий2": 4}}, ...]\n'
+        "Ключи в \"оценки\" должны буквально совпадать с названиями критериев.\n\n"
+        f"Запрос пользователя: {query}"
+    )
+
+    try:
+        text, _usage = generate(prompt)
+    except GeminiError as exc:
+        print(f"[ai_metadata] рекомендации не получены: {exc}")
+        return None
+
+    match = re.search(r"\[.*\]", text, re.DOTALL)
     if not match:
-        print(f"[ai_metadata] не удалось найти JSON в ответе: {text!r}")
+        print(f"[ai_metadata] не удалось найти JSON-массив в ответе: {text!r}")
         return None
 
     try:
-        payload = json.loads(match.group(0))
+        items = json.loads(match.group(0))
     except json.JSONDecodeError as exc:
         print(f"[ai_metadata] не удалось разобрать JSON ответа: {exc}")
         return None
 
-    explanation = str(payload.pop("объяснение", "")).strip()
-    scores: dict[str, float] = {}
-    for name in criteria:
-        value = payload.get(name)
-        if isinstance(value, (int, float)):
-            scores[name] = max(0.0, min(10.0, float(value)))
+    candidates = []
+    for item in items:
+        title = str(item.get("название", "")).strip()
+        if not title:
+            continue
+        scores = {
+            name: max(0.0, min(10.0, float(value)))
+            for name, value in item.get("оценки", {}).items()
+            if name in criteria and isinstance(value, (int, float))
+        }
+        candidates.append(
+            {
+                "title": title,
+                "author": str(item.get("автор", "")).strip() or None,
+                "description": str(item.get("описание", "")).strip(),
+                "scores": scores,
+            }
+        )
 
-    if not scores:
-        return None
-    return scores, explanation
+    return candidates or None

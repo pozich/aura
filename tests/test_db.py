@@ -12,8 +12,6 @@ def test_schema_creates_all_tables(db_conn):
         "api_keys",
         "usage_log",
         "reading_progress",
-        "ahp_criteria",
-        "ahp_results",
     }
     assert expected <= tables
 

@@ -38,3 +38,35 @@ def ask_gemini_async(prompt: str, on_success, on_error, model: str | None = None
     thread.failed.connect(on_error)
     thread.start()
     return thread
+
+
+class MagicQueryThread(QThread):
+    succeeded = Signal(list)
+    failed = Signal(str)
+
+    def __init__(self, query: str, parent=None):
+        super().__init__(parent)
+        self._query = query
+
+    def run(self):
+        from core.ahp_pipeline import magic_query
+
+        try:
+            results = magic_query(self._query)
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.succeeded.emit(results)
+
+
+def ask_magic_query_async(query: str, on_success, on_error, parent=None):
+    """Как ask_gemini_async, но для core.ahp_pipeline.magic_query — подбора книг по
+    АХП-критериям, извлечённым из свободного текста запроса. Пайплайн сам делает два
+    последовательных сетевых вызова, поэтому целиком уходит в фоновый поток.
+    on_success(results) получает список кандидатов (может быть пустым, если Gemini
+    не дал разборчивого ответа), on_error(message) — только на неожиданный сбой."""
+    thread = MagicQueryThread(query, parent)
+    thread.succeeded.connect(on_success)
+    thread.failed.connect(on_error)
+    thread.start()
+    return thread
