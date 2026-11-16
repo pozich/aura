@@ -1,8 +1,14 @@
 from __future__ import annotations
 
-from core.ahp import weighted_score
+from core.ahp import compute_weights, weighted_score
 from core.ai_metadata import suggest_criteria_scores
-from data.db import add_ahp_result, list_ahp_criteria, list_books, list_chapters
+from data.db import (
+    add_ahp_result,
+    list_ahp_criteria,
+    list_books,
+    list_chapters,
+    set_ahp_criteria_weights,
+)
 
 
 def _sample_text_for_book(book_id: int, max_chars: int = 3000) -> str:
@@ -11,6 +17,15 @@ def _sample_text_for_book(book_id: int, max_chars: int = 3000) -> str:
         if text and text.strip():
             return text[:max_chars]
     return ""
+
+
+def recompute_criteria_weights(
+    judgments: dict[tuple[str, str], float]
+) -> tuple[dict[str, float], float]:
+    name_to_id = {row["name"]: row["id"] for row in list_ahp_criteria()}
+    weights, cr = compute_weights(list(name_to_id), judgments)
+    set_ahp_criteria_weights({name_to_id[name]: weight for name, weight in weights.items()})
+    return weights, cr
 
 
 def rank_all_books() -> list[tuple[int, float]]:
