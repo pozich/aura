@@ -88,19 +88,3 @@ class UsageLogEntry:
 class ReadingProgress:
     book_id: int
     last_page: int
-
-
-@dataclass
-class AhpCriterion:
-    id: Optional[int]
-    name: str
-    weight: float
-
-
-@dataclass
-class AhpResult:
-    id: Optional[int]
-    book_id: int
-    score: float
-    explanation: Optional[str]
-    computed_at: Optional[str] = None

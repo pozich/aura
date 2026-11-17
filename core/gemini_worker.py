@@ -70,3 +70,31 @@ def ask_magic_query_async(query: str, on_success, on_error, parent=None):
     thread.failed.connect(on_error)
     thread.start()
     return thread
+
+
+class RecommendationsThread(QThread):
+    succeeded = Signal(list)
+    failed = Signal(str)
+
+    def run(self):
+        from core.recommendations import recompute_library_recommendations
+
+        try:
+            results = recompute_library_recommendations()
+        except Exception as exc:
+            self.failed.emit(str(exc))
+            return
+        self.succeeded.emit(results)
+
+
+def ask_recommendations_async(on_success, on_error, parent=None):
+    """Пересчитывает блок "вам может понравиться" в фоне — вызывается при
+    добавлении/удалении книги (ui/main_window.py), не при каждом открытии экрана
+    Библиотеки. on_success(results) получает новый список (может быть пустым),
+    on_error(message) — только на неожиданный сбой; обычные "нет ключа"/"Gemini не
+    ответил" внутри core.recommendations просто дают пустой результат."""
+    thread = RecommendationsThread(parent)
+    thread.succeeded.connect(on_success)
+    thread.failed.connect(on_error)
+    thread.start()
+    return thread

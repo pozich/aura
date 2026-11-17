@@ -267,6 +267,79 @@ def list_chat_messages() -> list[sqlite3.Row]:
     return rows
 
 
+def add_segment(book_id: int, idx: int, text: str) -> int:
+    conn = get_connection()
+    cur = conn.execute(
+        "INSERT INTO book_segments (book_id, idx, text) VALUES (?, ?, ?)",
+        (book_id, idx, text),
+    )
+    conn.commit()
+    new_id = cur.lastrowid
+    conn.close()
+    return new_id
+
+
+def list_segments(book_id: int) -> list[sqlite3.Row]:
+    conn = get_connection()
+    rows = conn.execute(
+        "SELECT * FROM book_segments WHERE book_id = ? ORDER BY idx", (book_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def delete_segments_for_book(book_id: int) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM book_segments WHERE book_id = ?", (book_id,))
+    conn.commit()
+    conn.close()
+
+
+def set_book_profile(book_id: int, summary: str, themes: str | None = None) -> None:
+    conn = get_connection()
+    conn.execute(
+        """
+        INSERT INTO book_profiles (book_id, summary, themes) VALUES (?, ?, ?)
+        ON CONFLICT (book_id) DO UPDATE SET
+            summary = excluded.summary, themes = excluded.themes,
+            generated_at = CURRENT_TIMESTAMP
+        """,
+        (book_id, summary, themes),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_book_profile(book_id: int) -> sqlite3.Row | None:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM book_profiles WHERE book_id = ?", (book_id,)
+    ).fetchone()
+    conn.close()
+    return row
+
+
+def replace_recommendations(items: list[dict]) -> None:
+    """Рекомендации не копятся историей (в отличие от ahp_results раньше) — это
+    витрина "вам может понравиться" на текущий момент, пересчитывается целиком при
+    каждом добавлении/удалении книги, старый список целиком заменяется новым."""
+    conn = get_connection()
+    conn.execute("DELETE FROM recommendations")
+    conn.executemany(
+        "INSERT INTO recommendations (title, author, description) VALUES (?, ?, ?)",
+        [(item["title"], item.get("author"), item.get("description")) for item in items],
+    )
+    conn.commit()
+    conn.close()
+
+
+def list_recommendations() -> list[sqlite3.Row]:
+    conn = get_connection()
+    rows = conn.execute("SELECT * FROM recommendations ORDER BY id").fetchall()
+    conn.close()
+    return rows
+
+
 if __name__ == "__main__":
     init_db()
     print(f"DB done: {DB_PATH}")

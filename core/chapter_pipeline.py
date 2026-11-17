@@ -10,11 +10,14 @@ from ebooklib import epub, ITEM_COVER, ITEM_DOCUMENT, ITEM_IMAGE
 from data.db import (
     add_category,
     add_chapter,
+    add_segment,
+    delete_segments_for_book,
     get_book,
     list_categories,
     set_book_category,
     set_book_cover,
     set_book_pages,
+    set_book_profile,
     update_book_info,
 )
 
@@ -93,28 +96,75 @@ def _clean_chapter_text(soup: BeautifulSoup) -> str:
     return "\n\n".join(paragraphs)
 
 
-def _auto_tag_category(book_id: int, sample_text: str) -> None:
-    """Best-effort: просит Gemini определить жанр и назначает/создаёт категорию.
-    Без активного API-ключа или при сбое запроса просто ничего не делает —
-    импорт книги от этого не должен падать."""
-    if not sample_text:
+SEGMENT_CHARS = 3000
+PROFILE_EXCERPTS = 5
+
+
+def segment_text(full_text: str, chunk_size: int = SEGMENT_CHARS) -> list[str]:
+    """Режет текст книги на чанки ограниченного размера, не разрывая абзацы —
+    это и есть кэш "сегментов" книги: сохраняется один раз при импорте
+    (data.db.add_segment), дальше ИИ-операции читают готовые куски вместо
+    того, чтобы заново парсить/резать сырой текст книги."""
+    paragraphs = [p for p in full_text.split("\n\n") if p.strip()]
+    segments: list[str] = []
+    current = ""
+    for p in paragraphs:
+        candidate = f"{current}\n\n{p}" if current else p
+        if len(candidate) > chunk_size and current:
+            segments.append(current)
+            current = p
+        else:
+            current = candidate
+    if current:
+        segments.append(current)
+    return segments
+
+
+def _representative_excerpts(segments: list[str], count: int = PROFILE_EXCERPTS) -> list[str]:
+    """Начало, конец и равномерно распределённые точки между ними — чтобы профиль
+    книги строился по ней целиком, а не только по первой главе, как раньше."""
+    if len(segments) <= count:
+        return segments
+    step = (len(segments) - 1) / (count - 1)
+    indices = {round(i * step) for i in range(count)}
+    return [segments[i] for i in sorted(indices)]
+
+
+def _cache_segments(book_id: int, full_text: str) -> list[str]:
+    delete_segments_for_book(book_id)
+    segments = segment_text(full_text)
+    for idx, segment in enumerate(segments):
+        add_segment(book_id, idx, segment)
+    return segments
+
+
+def _build_profile(book_id: int, segments: list[str]) -> None:
+    """Best-effort: один вызов Gemini по нескольким отрывкам книги даёт жанр,
+    summary и темы разом (core.ai_metadata.analyze_book), профиль кэшируется в
+    data.db.set_book_profile. Без активного API-ключа или при сбое запроса просто
+    ничего не делает — импорт книги от этого не должен падать."""
+    if not segments:
         return
 
-    from core.ai_metadata import suggest_category
+    from core.ai_metadata import analyze_book
 
     book_row = get_book(book_id)
     if book_row is None:
         return
 
-    tag = suggest_category(book_row["title"], book_row["author"], sample_text)
-    if not tag:
+    profile = analyze_book(book_row["title"], book_row["author"], _representative_excerpts(segments))
+    if profile is None:
         return
 
+    set_book_profile(book_id, profile["summary"], ", ".join(profile["themes"]) or None)
+
+    tag = profile.get("genre")
+    if not tag:
+        return
     existing = {c["name"].lower(): c["id"] for c in list_categories()}
     category_id = existing.get(tag.lower())
     if category_id is None:
         category_id = add_category(tag)
-
     set_book_category(book_id, category_id)
 
 
@@ -135,7 +185,7 @@ def import_book(book_id: int, source_path: str) -> int:
 
     idx = 0
     total_chars = 0
-    sample_text = ""
+    full_text_parts = []
     for item in book.get_items_of_type(ITEM_DOCUMENT):
         soup = BeautifulSoup(item.get_content(), "html.parser")
         text = _clean_chapter_text(soup)
@@ -147,13 +197,13 @@ def import_book(book_id: int, source_path: str) -> int:
 
         add_chapter(book_id, idx, title, text)
         total_chars += len(text)
-        if not sample_text:
-            sample_text = text
+        full_text_parts.append(text)
         idx += 1
 
     if total_chars:
         set_book_pages(book_id, max(1, round(total_chars / CHARS_PER_PAGE)))
 
-    _auto_tag_category(book_id, sample_text)
+    segments = _cache_segments(book_id, "\n\n".join(full_text_parts))
+    _build_profile(book_id, segments)
 
     return idx

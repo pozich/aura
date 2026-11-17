@@ -12,6 +12,9 @@ def test_schema_creates_all_tables(db_conn):
         "api_keys",
         "usage_log",
         "reading_progress",
+        "book_segments",
+        "book_profiles",
+        "recommendations",
     }
     assert expected <= tables
 
