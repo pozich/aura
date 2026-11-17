@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QGraphicsOpacityEffect, QMainWindow, QStackedWidge
 from PySide6.QtCore import QPropertyAnimation
 
 from core.app_state import AppState
+from core.gemini_worker import ask_recommendations_async
 from ui.screens.book_screen import BookScreen
 from ui.screens.chat_screen import ChatScreen
 from ui.screens.library_screen import LibraryScreen
@@ -41,16 +42,21 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.stack.setObjectName("StackBody")
 
+        self._rec_thread = None
+
         self.library_screen = LibraryScreen()
         self.library_screen.book_opened.connect(self.open_book_tab)
         self.library_screen.book_deleted.connect(self._on_book_deleted)
+        self.library_screen.book_deleted.connect(self._recompute_recommendations)
 
         self.storage_screen = StorageScreen()
         self.storage_screen.notebook_opened.connect(self.open_notes_tab)
         self.storage_screen.book_added.connect(
             lambda: self.library_screen.refresh(self.state)
         )
+        self.storage_screen.book_added.connect(self._recompute_recommendations)
         self.storage_screen.book_deleted.connect(self._on_book_deleted)
+        self.storage_screen.book_deleted.connect(self._recompute_recommendations)
 
         self.chat_screen = ChatScreen(self.state)
         self.settings_screen = SettingsScreen(self.state)
@@ -151,12 +157,29 @@ class MainWindow(QMainWindow):
         if tab_id in self.nav.tab_ids():
             self.close_tab(tab_id)
 
+    def _recompute_recommendations(self, *_args):
+        if self._rec_thread is not None:
+            return
+        self._rec_thread = ask_recommendations_async(
+            self._on_recommendations_ready, self._on_recommendations_error, parent=self
+        )
+
+    def _on_recommendations_ready(self, _results: list[dict]):
+        self._rec_thread = None
+        self.library_screen.refresh_recommendations()
+
+    def _on_recommendations_error(self, message: str):
+        self._rec_thread = None
+        print(f"[main_window] рекомендации для библиотеки не пересчитаны: {message}")
+
     def _refresh_open_books(self):
         for screen in self.screens.values():
             if isinstance(screen, BookScreen):
                 screen.refresh_appearance()
         self.nav.refresh_appearance()
         self.library_screen.refresh(self.state)
+        self.chat_screen.refresh_appearance()
+        self.chat_footer.refresh_appearance()
 
     def cycle_tab(self, direction: int):
         ids = self.nav.tab_ids()

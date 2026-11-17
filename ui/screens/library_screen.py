@@ -20,6 +20,41 @@ from ui.styles import hue_for, text_primary_for, text_secondary_for
 from ui.widgets.carousel import Carousel
 from ui.widgets.icon_button import CircleIconButton
 
+RECOMMENDATION_HUES = [
+    "#4c1d95", "#9f1239", "#155e75", "#854d0e", "#166534", "#6b21a8",
+]
+
+
+class RecommendationCard(QFrame):
+    FIXED_SIZE = (220, 130)
+
+    def __init__(self, recommendation, index: int, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(*self.FIXED_SIZE)
+        hue = RECOMMENDATION_HUES[index % len(RECOMMENDATION_HUES)]
+        self.setStyleSheet(f"QFrame {{ background-color: {hue}; border-radius: 12px; }}")
+
+        title = QLabel(recommendation["title"])
+        title.setWordWrap(True)
+        title.setStyleSheet(
+            "font-family: Georgia, serif; font-size: 15px; font-weight: 600; "
+            "color: white; background: transparent;"
+        )
+
+        author = QLabel(recommendation["author"] or "")
+        author.setStyleSheet("font-size: 12px; color: rgba(255, 255, 255, 0.75); background: transparent;")
+
+        description = QLabel(recommendation["description"] or "")
+        description.setWordWrap(True)
+        description.setStyleSheet("font-size: 12px; color: rgba(255, 255, 255, 0.9); background: transparent;")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(4)
+        layout.addWidget(title)
+        layout.addWidget(author)
+        layout.addWidget(description, 1)
+
 
 class CategoryStripItem(QPushButton):
     def __init__(self, label: str, parent=None):
@@ -192,17 +227,46 @@ class LibraryScreen(QWidget):
         info_panel.addLayout(progress_row)
         info_panel.addLayout(read_row)
 
+        self.recommendations_title = QLabel("Вам также могут понравиться:")
+        self.recommendations_title.setStyleSheet("font-family: Georgia, serif; font-size: 16px;")
+        self.recommendations_title.setContentsMargins(24, 0, 0, 0)
+        self.recommendations_title.setVisible(False)
+
+        self.recommendations_row = QHBoxLayout()
+        self.recommendations_row.setContentsMargins(24, 0, 24, 0)
+        self.recommendations_row.addStretch()
+
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 16, 0, 0)
         main_layout.addWidget(self.category_carousel)
         main_layout.addWidget(self.book_carousel)
         main_layout.addLayout(info_panel)
+        main_layout.addSpacing(24)
+        main_layout.addWidget(self.recommendations_title)
+        main_layout.addLayout(self.recommendations_row)
         main_layout.addStretch()
 
     def refresh(self, state):
         self._state = state
         self._rebuild_categories()
         self._rebuild_cards()
+        self.refresh_recommendations()
+
+    def refresh_recommendations(self):
+        from data.db import list_recommendations
+
+        while self.recommendations_row.count():
+            item = self.recommendations_row.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        recommendations = list_recommendations()
+        self.recommendations_title.setVisible(bool(recommendations))
+        for i, rec in enumerate(recommendations):
+            self.recommendations_row.addWidget(RecommendationCard(rec, i))
+        self.recommendations_row.addStretch()
 
     def _rebuild_categories(self):
         names = self._state.all_category_names()
