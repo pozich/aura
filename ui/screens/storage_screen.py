@@ -222,7 +222,7 @@ class AddItemModal(ModalOverlay):
 
     def _on_pick_file(self):
         path, _filter = QFileDialog.getOpenFileName(
-            self, "Выбрать файл книги", "", "Книги (*.epub *.fb2 *.pdf);;Все файлы (*)"
+            self, "Выбрать файл книги", "", "Книги (*.epub *.fb2 *.fb2.zip *.pdf);;Все файлы (*)"
         )
         if not path:
             return
@@ -243,7 +243,8 @@ class AddItemModal(ModalOverlay):
             source_path=self._book_source_path,
         )
 
-        if self._book_source_path and self._book_source_path.lower().endswith(".epub"):
+        supported = (".epub", ".fb2", ".fb2.zip", ".zip", ".pdf")
+        if self._book_source_path and self._book_source_path.lower().endswith(supported):
             from core.chapter_pipeline import import_book
             from PySide6.QtWidgets import QMessageBox
 
