@@ -91,3 +91,57 @@ CREATE TABLE IF NOT EXISTS recommendations (
   description TEXT,
   computed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS expert_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  problem_statement TEXT NOT NULL,
+  method TEXT NOT NULL DEFAULT 'ahp',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS expert_alternatives (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES expert_sessions (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  book_id INTEGER REFERENCES books (id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS expert_criteria (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES expert_sessions (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  weight REAL
+);
+
+CREATE TABLE IF NOT EXISTS experts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES expert_sessions (id) ON DELETE CASCADE,
+  name TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS expert_criteria_judgments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  expert_id INTEGER NOT NULL REFERENCES experts (id) ON DELETE CASCADE,
+  criterion_a_id INTEGER NOT NULL REFERENCES expert_criteria (id) ON DELETE CASCADE,
+  criterion_b_id INTEGER NOT NULL REFERENCES expert_criteria (id) ON DELETE CASCADE,
+  value REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS expert_alternative_scores (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  expert_id INTEGER NOT NULL REFERENCES experts (id) ON DELETE CASCADE,
+  alternative_id INTEGER NOT NULL REFERENCES expert_alternatives (id) ON DELETE CASCADE,
+  criterion_id INTEGER NOT NULL REFERENCES expert_criteria (id) ON DELETE CASCADE,
+  score REAL NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS expert_results (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_id INTEGER NOT NULL REFERENCES expert_sessions (id) ON DELETE CASCADE,
+  alternative_id INTEGER NOT NULL REFERENCES expert_alternatives (id) ON DELETE CASCADE,
+  score REAL NOT NULL,
+  rank INTEGER NOT NULL,
+  triggered_rules TEXT,
+  computed_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
