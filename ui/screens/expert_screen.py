@@ -12,9 +12,9 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
+    QTabWidget,
     QTextEdit,
     QVBoxLayout,
     QWidget,
@@ -127,6 +127,7 @@ class ExpertScreen(QWidget):
         self.criteria_table = QTableWidget(0, 3)
         self.criteria_table.setHorizontalHeaderLabels(["Критерий", "Вес", ""])
         _row_header(self.criteria_table)
+        self.criteria_table.setMaximumHeight(140)
 
         self.criteria_input = QLineEdit()
         self.criteria_input.setPlaceholderText("Название критерия")
@@ -136,6 +137,7 @@ class ExpertScreen(QWidget):
         self.alternatives_table = QTableWidget(0, 2)
         self.alternatives_table.setHorizontalHeaderLabels(["Альтернатива", ""])
         _row_header(self.alternatives_table)
+        self.alternatives_table.setMaximumHeight(140)
 
         self.alternative_input = QLineEdit()
         self.alternative_input.setPlaceholderText("Название альтернативы")
@@ -145,21 +147,25 @@ class ExpertScreen(QWidget):
         self.experts_table = QTableWidget(0, 2)
         self.experts_table.setHorizontalHeaderLabels(["Эксперт", ""])
         _row_header(self.experts_table)
+        self.experts_table.setMaximumHeight(140)
 
         self.expert_input = QLineEdit()
         self.expert_input.setPlaceholderText("Имя эксперта")
         add_expert_button = QPushButton("+ эксперт")
         add_expert_button.clicked.connect(self._add_expert)
 
-        self.judgments_title = _section_title("Попарные сравнения критериев")
         self.judgments_table = QTableWidget(0, 0)
         _row_header(self.judgments_table, stretch=False)
         self.judgments_table.verticalHeader().setMinimumWidth(180)
 
-        self.scores_title = _section_title("Оценки альтернатив по критериям (0-10)")
         self.scores_table = QTableWidget(0, 0)
         _row_header(self.scores_table, stretch=False)
         self.scores_table.verticalHeader().setMinimumWidth(120)
+
+        grids_tabs = QTabWidget()
+        grids_tabs.addTab(self.judgments_table, "Попарные сравнения критериев")
+        grids_tabs.addTab(self.scores_table, "Оценки альтернатив (0-10)")
+        grids_tabs.setMaximumHeight(260)
 
         calculate_button = QPushButton("Рассчитать")
         calculate_button.setProperty("role", "accent")
@@ -168,60 +174,60 @@ class ExpertScreen(QWidget):
         self.results_table = QTableWidget(0, 3)
         self.results_table.setHorizontalHeaderLabels(["Альтернатива", "Балл", "Ранг"])
         _row_header(self.results_table)
+        self.results_table.setMaximumHeight(180)
 
         self.explanation = QTextEdit()
         self.explanation.setReadOnly(True)
-        self.explanation.setFixedHeight(160)
 
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(24, 16, 24, 24)
-        content_layout.setSpacing(16)
-
-        content_layout.addLayout(header_row)
-
-        content_layout.addWidget(_section_title("Критерии"))
-        content_layout.addWidget(self.criteria_table)
+        criteria_panel = QVBoxLayout()
+        criteria_panel.addWidget(_section_title("Критерии"))
+        criteria_panel.addWidget(self.criteria_table)
         criteria_add_row = QHBoxLayout()
         criteria_add_row.addWidget(self.criteria_input, 1)
         criteria_add_row.addWidget(add_criterion_button)
-        content_layout.addLayout(criteria_add_row)
+        criteria_panel.addLayout(criteria_add_row)
 
-        content_layout.addWidget(_section_title("Альтернативы"))
-        content_layout.addWidget(self.alternatives_table)
+        alternatives_panel = QVBoxLayout()
+        alternatives_panel.addWidget(_section_title("Альтернативы"))
+        alternatives_panel.addWidget(self.alternatives_table)
         alternative_add_row = QHBoxLayout()
         alternative_add_row.addWidget(self.alternative_input, 1)
         alternative_add_row.addWidget(add_alternative_button)
-        content_layout.addLayout(alternative_add_row)
+        alternatives_panel.addLayout(alternative_add_row)
 
-        content_layout.addWidget(_section_title("Эксперты"))
-        content_layout.addWidget(self.experts_table)
+        experts_panel = QVBoxLayout()
+        experts_panel.addWidget(_section_title("Эксперты"))
+        experts_panel.addWidget(self.experts_table)
         expert_add_row = QHBoxLayout()
         expert_add_row.addWidget(self.expert_input, 1)
         expert_add_row.addWidget(add_expert_button)
-        content_layout.addLayout(expert_add_row)
+        experts_panel.addLayout(expert_add_row)
 
-        content_layout.addWidget(self.judgments_title)
-        content_layout.addWidget(self.judgments_table)
+        entities_row = QHBoxLayout()
+        entities_row.addLayout(criteria_panel, 1)
+        entities_row.addLayout(alternatives_panel, 1)
+        entities_row.addLayout(experts_panel, 1)
 
-        content_layout.addWidget(self.scores_title)
-        content_layout.addWidget(self.scores_table)
+        left_column = QVBoxLayout()
+        left_column.addLayout(entities_row)
+        left_column.addWidget(grids_tabs)
+        left_column.addWidget(calculate_button)
+        left_column.addStretch()
 
-        content_layout.addWidget(calculate_button)
+        right_column = QVBoxLayout()
+        right_column.addWidget(_section_title("Результаты и рекомендация"))
+        right_column.addWidget(self.results_table)
+        right_column.addWidget(self.explanation, 1)
 
-        content_layout.addWidget(_section_title("Результаты"))
-        content_layout.addWidget(self.results_table)
-
-        content_layout.addWidget(_section_title("Рекомендация и объяснение"))
-        content_layout.addWidget(self.explanation)
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(content)
+        main_row = QHBoxLayout()
+        main_row.addLayout(left_column, 3)
+        main_row.addLayout(right_column, 2)
 
         outer_layout = QVBoxLayout(self)
-        outer_layout.setContentsMargins(0, 0, 0, 0)
-        outer_layout.addWidget(scroll)
+        outer_layout.setContentsMargins(24, 16, 24, 16)
+        outer_layout.setSpacing(12)
+        outer_layout.addLayout(header_row)
+        outer_layout.addLayout(main_row, 1)
 
         self.history_modal = HistoryModal(self._load_session, self)
 
