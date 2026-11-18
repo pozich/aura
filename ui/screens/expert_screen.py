@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QStringListModel
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QCompleter,
     QDoubleSpinBox,
     QHBoxLayout,
     QHeaderView,
@@ -21,8 +22,12 @@ from PySide6.QtWidgets import (
 )
 
 from core.expert_pipeline import ExpertEvaluationError, run_evaluation
+from core.gemini_worker import ask_expert_judgment_async
+from data.db import list_books
 from data.expert_db import (
     add_alternative,
+    add_alternative_score,
+    add_criteria_judgment,
     add_criterion,
     add_expert,
     create_session,
@@ -140,7 +145,13 @@ class ExpertScreen(QWidget):
         self.alternatives_table.setMaximumHeight(140)
 
         self.alternative_input = QLineEdit()
-        self.alternative_input.setPlaceholderText("Название альтернативы")
+        self.alternative_input.setPlaceholderText("Название альтернативы (или начните вводить книгу из библиотеки)")
+        self._book_by_label: dict[str, int] = {}
+        self.alternative_completer = QCompleter()
+        self.alternative_completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.alternative_completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        self.alternative_input.setCompleter(self.alternative_completer)
+        self._refresh_book_completer()
         add_alternative_button = QPushButton("+ альтернатива")
         add_alternative_button.clicked.connect(self._add_alternative)
 
@@ -153,6 +164,10 @@ class ExpertScreen(QWidget):
         self.expert_input.setPlaceholderText("Имя эксперта")
         add_expert_button = QPushButton("+ эксперт")
         add_expert_button.clicked.connect(self._add_expert)
+
+        self._gemini_expert_thread = None
+        self.add_gemini_expert_button = QPushButton("+ Gemini-эксперт")
+        self.add_gemini_expert_button.clicked.connect(self._add_gemini_expert)
 
         self.judgments_table = QTableWidget(0, 0)
         _row_header(self.judgments_table, stretch=False)
@@ -202,6 +217,7 @@ class ExpertScreen(QWidget):
         expert_add_row.addWidget(self.expert_input, 1)
         expert_add_row.addWidget(add_expert_button)
         experts_panel.addLayout(expert_add_row)
+        experts_panel.addWidget(self.add_gemini_expert_button)
 
         entities_row = QHBoxLayout()
         entities_row.addLayout(criteria_panel, 1)
@@ -291,11 +307,21 @@ class ExpertScreen(QWidget):
         self._rebuild_judgments_grid()
         self._rebuild_scores_grid()
 
+    def _refresh_book_completer(self):
+        self._book_by_label = {}
+        labels = []
+        for book in list_books():
+            label = f"{book['title']} — {book['author']}" if book["author"] else book["title"]
+            self._book_by_label[label] = book["id"]
+            labels.append(label)
+        self.alternative_completer.setModel(QStringListModel(labels, self.alternative_completer))
+
     def _add_alternative(self):
         name = self.alternative_input.text().strip()
         if not name:
             return
-        add_alternative(self._session_id, name)
+        book_id = self._book_by_label.get(name)
+        add_alternative(self._session_id, name, book_id=book_id)
         self.alternative_input.clear()
         self._alternatives = list(list_alternatives(self._session_id))
         self._rebuild_alternatives_table()
@@ -324,6 +350,62 @@ class ExpertScreen(QWidget):
         self._rebuild_experts_table()
         self._rebuild_judgments_grid()
         self._rebuild_scores_grid()
+
+    def _add_gemini_expert(self):
+        if self._gemini_expert_thread is not None:
+            return
+        if len(self._criteria) < 2 or not self._alternatives:
+            QMessageBox.information(
+                self, "Нужны данные", "Сначала добавьте минимум 2 критерия и хотя бы одну альтернативу."
+            )
+            return
+        self.add_gemini_expert_button.setEnabled(False)
+        self.add_gemini_expert_button.setText("Gemini оценивает…")
+        self._gemini_expert_thread = ask_expert_judgment_async(
+            [c["name"] for c in self._criteria],
+            [a["name"] for a in self._alternatives],
+            self.problem_input.text().strip(),
+            self._on_gemini_expert_ready,
+            self._on_gemini_expert_error,
+            parent=self,
+        )
+
+    def _reset_gemini_expert_button(self):
+        self._gemini_expert_thread = None
+        self.add_gemini_expert_button.setEnabled(True)
+        self.add_gemini_expert_button.setText("+ Gemini-эксперт")
+
+    def _on_gemini_expert_ready(self, result: dict):
+        self._reset_gemini_expert_button()
+        if not result:
+            QMessageBox.warning(self, "Gemini не ответил", "Не удалось получить оценку от Gemini-эксперта.")
+            return
+
+        expert_id = add_expert(self._session_id, "Gemini-эксперт")
+        self._experts = list(list_experts(self._session_id))
+
+        name_to_criterion_id = {c["name"]: c["id"] for c in self._criteria}
+        for (a, b), value in result.get("judgments", {}).items():
+            if a in name_to_criterion_id and b in name_to_criterion_id:
+                add_criteria_judgment(expert_id, name_to_criterion_id[a], name_to_criterion_id[b], value)
+
+        name_to_alternative_id = {a["name"]: a["id"] for a in self._alternatives}
+        for alt_name, by_criterion in result.get("scores", {}).items():
+            alternative_id = name_to_alternative_id.get(alt_name)
+            if alternative_id is None:
+                continue
+            for criterion_name, score in by_criterion.items():
+                criterion_id = name_to_criterion_id.get(criterion_name)
+                if criterion_id is not None:
+                    add_alternative_score(expert_id, alternative_id, criterion_id, score)
+
+        self._rebuild_experts_table()
+        self._rebuild_judgments_grid()
+        self._rebuild_scores_grid()
+
+    def _on_gemini_expert_error(self, message: str):
+        self._reset_gemini_expert_button()
+        QMessageBox.warning(self, "Ошибка", message)
 
     def _rebuild_criteria_table(self):
         self.criteria_table.setRowCount(len(self._criteria))
