@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QCompleter,
     QDoubleSpinBox,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -21,7 +22,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from core.expert_pipeline import ExpertEvaluationError, run_evaluation
+from core.expert_pipeline import (
+    MIN_ALTERNATIVES,
+    MIN_CRITERIA,
+    MIN_EXPERTS,
+    ExpertEvaluationError,
+    run_evaluation,
+)
 from core.gemini_worker import ask_expert_judgment_async
 from data.db import list_books
 from data.expert_db import (
@@ -69,6 +76,28 @@ def _section_title(text: str) -> QLabel:
     label = QLabel(text)
     label.setStyleSheet("font-family: Georgia, serif; font-size: 16px;")
     return label
+
+
+def _step_header(number: str, title: str, hint: str) -> QVBoxLayout:
+    header = QVBoxLayout()
+    header.setSpacing(2)
+    title_label = QLabel(f"{number}. {title}")
+    title_label.setStyleSheet("font-family: Georgia, serif; font-size: 15px; font-weight: 600;")
+    hint_label = QLabel(hint)
+    hint_label.setProperty("role", "muted")
+    hint_label.setWordWrap(True)
+    header.addWidget(title_label)
+    header.addWidget(hint_label)
+    return header
+
+
+def _card(inner_layout) -> QFrame:
+    frame = QFrame()
+    frame.setProperty("role", "card")
+    frame.setLayout(inner_layout)
+    inner_layout.setContentsMargins(16, 14, 16, 14)
+    inner_layout.setSpacing(10)
+    return frame
 
 
 def _spinbox(low: float, high: float, default: float) -> QDoubleSpinBox:
@@ -129,6 +158,14 @@ class ExpertScreen(QWidget):
         header_row.addWidget(new_session_button)
         header_row.addWidget(history_button)
 
+        intro_label = QLabel(
+            "Сравните несколько альтернатив по критериям с участием нескольких экспертов — "
+            "приложение посчитает веса критериев (метод AHP), ранжирует альтернативы и "
+            "объяснит рекомендацию сработавшими правилами."
+        )
+        intro_label.setProperty("role", "muted")
+        intro_label.setWordWrap(True)
+
         self.criteria_table = QTableWidget(0, 3)
         self.criteria_table.setHorizontalHeaderLabels(["Критерий", "Вес", ""])
         _row_header(self.criteria_table)
@@ -178,13 +215,20 @@ class ExpertScreen(QWidget):
         self.scores_table.verticalHeader().setMinimumWidth(120)
 
         grids_tabs = QTabWidget()
-        grids_tabs.addTab(self.judgments_table, "Попарные сравнения критериев")
-        grids_tabs.addTab(self.scores_table, "Оценки альтернатив (0-10)")
-        grids_tabs.setMaximumHeight(260)
+        grids_tabs.addTab(self.judgments_table, "Шаг 4 · Сравнение критериев")
+        grids_tabs.addTab(self.scores_table, "Шаг 5 · Оценки альтернатив (0-10)")
+        grids_tabs.setMaximumHeight(240)
 
-        calculate_button = QPushButton("Рассчитать")
-        calculate_button.setProperty("role", "accent")
-        calculate_button.clicked.connect(self._calculate)
+        self.progress_label = QLabel()
+        self.progress_label.setProperty("role", "muted")
+        self.progress_label.setWordWrap(True)
+
+        self.calculate_button = QPushButton("Шаг 6 · Рассчитать")
+        self.calculate_button.setProperty("role", "accent")
+        self.calculate_button.setToolTip(
+            f"Нужно минимум {MIN_CRITERIA} критерия, {MIN_ALTERNATIVES} альтернативы и {MIN_EXPERTS} эксперта"
+        )
+        self.calculate_button.clicked.connect(self._calculate)
 
         self.results_table = QTableWidget(0, 3)
         self.results_table.setHorizontalHeaderLabels(["Альтернатива", "Балл", "Ранг"])
@@ -193,9 +237,15 @@ class ExpertScreen(QWidget):
 
         self.explanation = QTextEdit()
         self.explanation.setReadOnly(True)
+        self.explanation.setPlaceholderText(
+            "Здесь появится рекомендация: веса критериев, коэффициент согласованности "
+            "и правила, которые сработали."
+        )
 
         criteria_panel = QVBoxLayout()
-        criteria_panel.addWidget(_section_title("Критерии"))
+        criteria_panel.addLayout(
+            _step_header("1", "Критерии", f"Минимум {MIN_CRITERIA} — по ним будете сравнивать альтернативы")
+        )
         criteria_panel.addWidget(self.criteria_table)
         criteria_add_row = QHBoxLayout()
         criteria_add_row.addWidget(self.criteria_input, 1)
@@ -203,7 +253,9 @@ class ExpertScreen(QWidget):
         criteria_panel.addLayout(criteria_add_row)
 
         alternatives_panel = QVBoxLayout()
-        alternatives_panel.addWidget(_section_title("Альтернативы"))
+        alternatives_panel.addLayout(
+            _step_header("2", "Альтернативы", f"Минимум {MIN_ALTERNATIVES} — варианты, из которых выбираем")
+        )
         alternatives_panel.addWidget(self.alternatives_table)
         alternative_add_row = QHBoxLayout()
         alternative_add_row.addWidget(self.alternative_input, 1)
@@ -211,7 +263,9 @@ class ExpertScreen(QWidget):
         alternatives_panel.addLayout(alternative_add_row)
 
         experts_panel = QVBoxLayout()
-        experts_panel.addWidget(_section_title("Эксперты"))
+        experts_panel.addLayout(
+            _step_header("3", "Эксперты", f"Минимум {MIN_EXPERTS} — люди и/или Gemini, каждый оценивает сам")
+        )
         experts_panel.addWidget(self.experts_table)
         expert_add_row = QHBoxLayout()
         expert_add_row.addWidget(self.expert_input, 1)
@@ -220,20 +274,28 @@ class ExpertScreen(QWidget):
         experts_panel.addWidget(self.add_gemini_expert_button)
 
         entities_row = QHBoxLayout()
-        entities_row.addLayout(criteria_panel, 1)
-        entities_row.addLayout(alternatives_panel, 1)
-        entities_row.addLayout(experts_panel, 1)
+        entities_row.addWidget(_card(criteria_panel), 1)
+        entities_row.addWidget(_card(alternatives_panel), 1)
+        entities_row.addWidget(_card(experts_panel), 1)
+
+        grids_panel = QVBoxLayout()
+        grids_panel.addWidget(_section_title("Сравнения и оценки экспертов"))
+        grids_panel.addWidget(grids_tabs)
+        grids_panel.addWidget(self.progress_label)
+        grids_panel.addWidget(self.calculate_button)
 
         left_column = QVBoxLayout()
         left_column.addLayout(entities_row)
-        left_column.addWidget(grids_tabs)
-        left_column.addWidget(calculate_button)
+        left_column.addWidget(_card(grids_panel))
         left_column.addStretch()
 
+        results_panel = QVBoxLayout()
+        results_panel.addWidget(_section_title("Результат и рекомендация"))
+        results_panel.addWidget(self.results_table)
+        results_panel.addWidget(self.explanation, 1)
+
         right_column = QVBoxLayout()
-        right_column.addWidget(_section_title("Результаты и рекомендация"))
-        right_column.addWidget(self.results_table)
-        right_column.addWidget(self.explanation, 1)
+        right_column.addWidget(_card(results_panel), 1)
 
         main_row = QHBoxLayout()
         main_row.addLayout(left_column, 3)
@@ -243,11 +305,27 @@ class ExpertScreen(QWidget):
         outer_layout.setContentsMargins(24, 16, 24, 16)
         outer_layout.setSpacing(12)
         outer_layout.addLayout(header_row)
+        outer_layout.addWidget(intro_label)
         outer_layout.addLayout(main_row, 1)
 
         self.history_modal = HistoryModal(self._load_session, self)
 
         self._new_session()
+
+    def _update_progress(self):
+        parts = [
+            f"Критериев {len(self._criteria)}/{MIN_CRITERIA}",
+            f"Альтернатив {len(self._alternatives)}/{MIN_ALTERNATIVES}",
+            f"Экспертов {len(self._experts)}/{MIN_EXPERTS}",
+        ]
+        ready = (
+            len(self._criteria) >= MIN_CRITERIA
+            and len(self._alternatives) >= MIN_ALTERNATIVES
+            and len(self._experts) >= MIN_EXPERTS
+        )
+        suffix = " — можно рассчитывать" if ready else " — добавьте ещё, чтобы рассчитать"
+        self.progress_label.setText(" · ".join(parts) + suffix)
+        self.calculate_button.setEnabled(ready)
 
     def _save_session_meta(self):
         if self._session_id is None:
@@ -417,6 +495,7 @@ class ExpertScreen(QWidget):
             button = CircleIconButton("close", size=20)
             button.clicked.connect(lambda _checked=False, cid=criterion["id"]: self._remove_criterion(cid))
             self.criteria_table.setCellWidget(row, 2, button)
+        self._update_progress()
 
     def _rebuild_alternatives_table(self):
         self.alternatives_table.setRowCount(len(self._alternatives))
@@ -425,6 +504,7 @@ class ExpertScreen(QWidget):
             button = CircleIconButton("close", size=20)
             button.clicked.connect(lambda _checked=False, aid=alternative["id"]: self._remove_alternative(aid))
             self.alternatives_table.setCellWidget(row, 1, button)
+        self._update_progress()
 
     def _rebuild_experts_table(self):
         self.experts_table.setRowCount(len(self._experts))
@@ -433,6 +513,7 @@ class ExpertScreen(QWidget):
             button = CircleIconButton("close", size=20)
             button.clicked.connect(lambda _checked=False, eid=expert["id"]: self._remove_expert(eid))
             self.experts_table.setCellWidget(row, 1, button)
+        self._update_progress()
 
     def _existing_judgment_value(self, expert_id: int, a_id: int, b_id: int, rows) -> float:
         for r in rows:

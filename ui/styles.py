@@ -144,6 +144,10 @@ QPushButton:hover {{
     background-color: {card_bg_hover};
 }}
 
+QPushButton:disabled {{
+    color: {text_dim};
+}}
+
 QPushButton[role="accent"] {{
     background-color: {accent};
     color: {on_accent};
@@ -153,6 +157,11 @@ QPushButton[role="accent"] {{
 QPushButton[role="accent"]:hover {{
     background-color: {accent_hover};
     color: {on_accent};
+}}
+
+QPushButton[role="accent"]:disabled {{
+    background-color: {border};
+    color: {text_dim};
 }}
 
 QPushButton[role="chip_add"] {{
@@ -214,6 +223,12 @@ QLineEdit, QTextEdit {{
 QLineEdit:disabled, QTextEdit:disabled {{
     color: {text_dim};
     background-color: transparent;
+}}
+
+QFrame[role="card"] {{
+    background-color: {card_bg};
+    border: 1px solid {border};
+    border-radius: 12px;
 }}
 
 QListWidget {{
