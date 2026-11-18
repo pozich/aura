@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QHeaderView,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMessageBox,
@@ -44,6 +45,7 @@ from data.expert_db import (
     list_experts,
     list_results,
     list_sessions,
+    rename_session,
     replace_alternative_scores,
     replace_criteria_judgments,
 )
@@ -326,6 +328,12 @@ class ExpertScreen(QWidget):
         else:
             self._refresh_sessions_row()
 
+    def _rename_session(self, session_id: int, current_title: str):
+        title, ok = QInputDialog.getText(self, "Переименовать сессию", "Название:", text=current_title)
+        if ok and title.strip():
+            rename_session(session_id, title.strip())
+            self._refresh_sessions_row()
+
     def _refresh_sessions_row(self):
         while self.sessions_row.count():
             item = self.sessions_row.takeAt(0)
@@ -349,16 +357,24 @@ class ExpertScreen(QWidget):
         layout.setContentsMargins(10, 4, 6, 4)
         layout.setSpacing(4)
 
-        label_button = QPushButton(row["title"] or "Без названия")
+        title = row["title"] or "Без названия"
+
+        label_button = QPushButton(title)
         label_button.setFlat(True)
         if row["id"] == self._session_id:
             label_button.setStyleSheet("font-weight: 600;")
         label_button.clicked.connect(lambda _checked=False, sid=row["id"]: self._load_session(sid))
 
+        rename_button = CircleIconButton("edit", size=16)
+        rename_button.clicked.connect(
+            lambda _checked=False, sid=row["id"], t=title: self._rename_session(sid, t)
+        )
+
         close_button = CircleIconButton("close", size=16)
         close_button.clicked.connect(lambda _checked=False, sid=row["id"]: self._delete_session(sid))
 
         layout.addWidget(label_button)
+        layout.addWidget(rename_button)
         layout.addWidget(close_button)
         return chip
 

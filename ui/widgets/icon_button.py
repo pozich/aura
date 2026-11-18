@@ -48,6 +48,14 @@ class CircleIconButton(QPushButton):
                 QPointF(rect.left() + margin, rect.bottom() - margin),
             )
 
+        elif self._icon == "edit":
+            margin = rect.width() * 0.26
+            start = QPointF(rect.left() + margin, rect.bottom() - margin)
+            end = QPointF(rect.right() - margin, rect.top() + margin)
+            painter.drawLine(start, end)
+            tip = QPointF(rect.right() - margin * 1.7, rect.top() + margin * 1.7)
+            painter.drawLine(end, tip)
+
         elif self._icon == "tag":
             tag_rect = rect.adjusted(
                 rect.width() * 0.2, rect.height() * 0.3, -rect.width() * 0.2, -rect.height() * 0.3

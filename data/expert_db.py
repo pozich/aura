@@ -38,6 +38,13 @@ def delete_session(session_id: int) -> None:
     conn.close()
 
 
+def rename_session(session_id: int, title: str) -> None:
+    conn = get_connection()
+    conn.execute("UPDATE expert_sessions SET title = ? WHERE id = ?", (title, session_id))
+    conn.commit()
+    conn.close()
+
+
 
 
 def add_alternative(session_id: int, name: str, book_id: int | None = None) -> int:
