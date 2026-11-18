@@ -18,15 +18,6 @@ from ui.widgets.icon_button import CircleIconButton
 
 
 def _build_html(chapters, book_title: str, *, font_family: str, font_size: int, text_color: str) -> str:
-    """Текст раньше растягивался на всю ширину окна тонкими строками без просветов
-    между абзацами — выглядело как "полоски", а не страница книги. Тут: читаемая
-    колонка по центру (а не во всю ширину), отступ между абзацами и увеличенный
-    line-height для плотности, красная строка как в настоящей книге.
-
-    font_family/font_size/text_color приходят из Настроек (а не прибиты гвоздями) —
-    это единственное место, где выбор шрифта/темы реально что-то читает: в отличие
-    от хрома приложения, текст книги верстается вручную через HTML, а не через общий
-    QSS-каскад."""
     style = f'font-family:"{font_family}"; font-size:{font_size}px; line-height:1.8; color:{text_color};'
     if not chapters:
         title = html.escape(book_title)
@@ -54,11 +45,6 @@ def _build_html(chapters, book_title: str, *, font_family: str, font_size: int, 
 
 
 class GradientFade(QWidget):
-    """Текст не обрывается резкой границей под инфо-плашкой, а гаснет градиентом —
-    чисто декоративный слой, клики должны проходить сквозь него к QTextEdit под ним.
-    Цвет, в который гаснет текст, — фон ТЕКУЩЕЙ темы, а не прибитый гвоздями navy,
-    иначе на светлой теме (Крем) затухание шло бы в чужой тёмный цвет."""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         self._bg = QColor("#000000")
@@ -148,11 +134,6 @@ class BookScreen(QWidget):
         self._refresh_page_label()
 
     def _apply_appearance(self):
-        """Тема/шрифт книги — те же, что выбраны в Настройках. Раньше читались
-        только один раз в __init__, и уже открытая вкладка книги не замечала смену
-        настроек, пока её явно не закрыть и не открыть заново — теперь это же
-        применяется и из refresh_appearance(), которую дёргает MainWindow по сигналу
-        из Настроек, так что открытая вкладка обновляется сразу, без переоткрытия."""
         from data.app_settings import load_settings
         from data.db import list_chapters
         from ui.styles import resolve_font_family, text_primary_for, theme_colors

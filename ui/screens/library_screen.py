@@ -172,7 +172,6 @@ class BookCard(QFrame):
 
 
 class LibraryScreen(QWidget):
-
     book_opened = Signal(int)
     book_deleted = Signal(int)
 

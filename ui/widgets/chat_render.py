@@ -10,10 +10,6 @@ BUBBLE_WIDTH_PX = 460
 
 
 def _format_body(text: str) -> str:
-    """Экранируем ВЕСЬ текст (он может быть от пользователя или от Gemini, ни тому
-    ни другому верить нельзя), и только потом подставляем **жирный** — после escape
-    звёздочки остаются звёздочками, а настоящие <b> в тексте превращаются в
-    безопасный &lt;b&gt; и жирным не станут."""
     escaped = html.escape(text)
     escaped = BOLD_RE.sub(r"<b>\1</b>", escaped)
     paragraphs = escaped.split("\n\n")
@@ -21,11 +17,6 @@ def _format_body(text: str) -> str:
 
 
 def _bubble(body: str, *, align: str, bg: str, color: str) -> str:
-    """align="right"/"left" на самой <table> — единственный способ, которым Qt rich
-    text реально сдвигает блок к краю и держит его на фиксированной ширине
-    (width в процентах на вложенной таблице Qt игнорирует, проверено эмпирически).
-    Текст внутри всегда прижат влево — читать многострочный текст, выровненный по
-    правому краю, неудобно, даже если сам пузырь у правого края экрана."""
     return (
         f'<table align="{align}" width="{BUBBLE_WIDTH_PX}" cellspacing="0" cellpadding="10">'
         f'<tr><td style="background-color:{bg}; color:{color};">{body}</td></tr>'
@@ -42,14 +33,6 @@ def build_chat_html(
     status: str | None = None,
     status_is_error: bool = False,
 ) -> str:
-    """Общий рендер истории чата для ChatScreen и ChatFooter — делит с текстом
-    книги (ui/screens/book_screen.py _build_html) приём рисовать такие вещи вручную
-    через HTML, а не QSS-каскадом, потому что цвет и выравнивание тут зависят от
-    роли сообщения, а не только от темы.
-
-    status — необязательная последняя строка ("ИИ печатает…" / ошибка), не часть
-    истории в БД, рисуется как обычный текст без пузыря, чтобы не путать с
-    настоящим ответом ассистента."""
     palette = theme_colors(theme_id)
     text_color = text_primary_for(theme_id)
     muted_color = text_secondary_for(theme_id)

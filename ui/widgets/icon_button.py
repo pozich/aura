@@ -6,10 +6,6 @@ from PySide6.QtWidgets import QPushButton
 
 
 class CircleIconButton(QPushButton):
-    """Кнопка-кружок с иконкой, нарисованной вручную через QPainter — не зависит от
-    того, есть ли в системе шрифт с цветными эмодзи/спецсимволами (⏹▶⏸←→ на части
-    систем попросту не рендерились — тот же корень проблемы, что был с текстом вкладок)."""
-
     def __init__(self, icon: str, size: int = 22, parent=None):
         super().__init__(parent)
         self._icon = icon

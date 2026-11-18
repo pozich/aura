@@ -69,7 +69,6 @@ def test_run_evaluation_disagreeing_experts_raise_cr_and_flag_it(expert_db):
     e1 = add_expert(session_id, "Эксперт 1")
     e2 = add_expert(session_id, "Эксперт 2")
 
-    # Намеренно противоречивые попарные суждения (A>>B>>C, но C>>A) — высокий CR.
     add_criteria_judgment(e1, a, b, 9.0)
     add_criteria_judgment(e1, b, c, 9.0)
     add_criteria_judgment(e1, a, c, 1 / 9)

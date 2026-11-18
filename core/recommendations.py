@@ -10,10 +10,6 @@ from data.db import (
 
 
 def _ensure_profile(book_id: int, title: str, author: str | None) -> dict | None:
-    """Профиль уже закэширован (обычная ситуация для книг, импортированных через
-    core.chapter_pipeline) — просто читаем его. Для книг, добавленных до этой фичи
-    (сегменты ещё не кэшированы), достраиваем профиль один раз здесь же и тоже
-    кэшируем — дальше для них это уже не повторится."""
     row = get_book_profile(book_id)
     if row is not None:
         return {"title": title, "author": author, "genre": None, "summary": row["summary"]}
@@ -34,11 +30,6 @@ def _ensure_profile(book_id: int, title: str, author: str | None) -> dict | None
 
 
 def recompute_library_recommendations(count: int = 5) -> list[dict]:
-    """Пересчитывает блок "вам также могут понравиться" на экране Библиотеки —
-    вызывается при добавлении/удалении книги (core.gemini_worker.ask_recommendations_async),
-    не при каждом открытии экрана. Читает только закэшированные профили книг
-    (жанр/summary/темы), а не сырой текст — экономия токенов и есть весь смысл
-    сегментов и профилей, которые кэширует core.chapter_pipeline при импорте."""
     books = list_books()
     profiles = []
     for book in books:

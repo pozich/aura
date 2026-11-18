@@ -14,9 +14,6 @@ HIGH_DISAGREEMENT_THRESHOLD = 2.5
 
 @dataclass
 class RuleContext:
-    """Всё, что нужно базе правил, чтобы объяснить итог расчёта — отдельно от
-    самого АХП-расчёта (core.expert_pipeline его только строит и передаёт сюда)."""
-
     ranked: list[tuple[str, float]]
     criteria_weights: dict[str, float]
     cr: float
@@ -113,9 +110,6 @@ RULES = [
 
 
 def evaluate_rules(ctx: RuleContext) -> list[str]:
-    """Прогоняет базу правил ЕСЛИ-ТО по итогам АХП-расчёта. Возвращает только
-    сработавшие правила с готовым объяснением — это и есть пункт методички
-    "показывать пользователю критерии и сработавшие правила"."""
     fired = []
     for rule in RULES:
         message = rule(ctx)

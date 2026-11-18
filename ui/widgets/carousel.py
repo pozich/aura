@@ -5,10 +5,6 @@ from PySide6.QtWidgets import QFrame, QWidget
 
 
 class Carousel(QFrame):
-    """Горизонтальная карусель слотов фиксированной ширины — активный индекс всегда
-    по центру видимой зоны, соседи уезжают в стороны и обрезаются границей виджета.
-    Ровно та механика, что в Figma: translateX(W/2 - (i+0.5)*slot) с анимацией."""
-
     def __init__(self, slot_width: int, height: int, parent=None):
         super().__init__(parent)
         self.slot_width = slot_width

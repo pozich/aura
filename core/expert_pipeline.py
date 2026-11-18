@@ -21,8 +21,6 @@ def _group_judgments_by_expert(rows) -> list[dict[tuple[str, str], float]]:
 
 
 def _group_scores_by_alternative(rows) -> dict[str, list[dict[str, float]]]:
-    """Для каждой альтернативы — список словарей "критерий -> балл", один словарь
-    на эксперта, в порядке, нужном core.expert_aggregation.aggregate_scores."""
     by_alt_expert: dict[str, dict[int, dict[str, float]]] = {}
     for row in rows:
         per_expert = by_alt_expert.setdefault(row["alternative"], {})
@@ -38,12 +36,6 @@ def _raw_scores_by_alternative_criterion(rows) -> dict[str, dict[str, list[float
 
 
 def run_evaluation(session_id: int) -> dict:
-    """Главный расчёт сессии экспертной оценки: сводит попарные суждения и баллы
-    нескольких экспертов (core.expert_aggregation), считает веса критериев и
-    ранжирует альтернативы (core.ahp — та же математика, что и для АХП раньше),
-    прогоняет базу правил ЕСЛИ-ТО (core.expert_rules) и сохраняет результат
-    (data.expert_db.replace_results). Возвращает всё сразу — весам/рейтингу/
-    сработавшим правилам не нужен второй поход в БД, чтобы их показать."""
     criteria_rows = list_criteria(session_id)
     criteria_names = [row["name"] for row in criteria_rows]
     name_to_criterion_id = {row["name"]: row["id"] for row in criteria_rows}

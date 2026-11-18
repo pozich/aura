@@ -7,13 +7,6 @@ from core.gemini_client import GeminiError, generate
 
 
 def analyze_book(title: str, author: str | None, excerpts: list[str]) -> dict | None:
-    """Разбирает книгу по нескольким отрывкам, разнесённым по всей книге (не только
-    по первой главе, как раньше делал suggest_category) — один вызов Gemini сразу
-    даёт жанр, краткое summary и темы. Результат кэшируется в data.db.set_book_profile,
-    чтобы core.recommendations мог строить рекомендации по всей библиотеке, читая
-    готовый профиль, а не пересылая сырой текст книги заново при каждом подсчёте.
-    При отсутствии ключа или неразборчивом ответе возвращает None — импорт книги
-    (как и раньше с жанром) от этого не падает."""
     if not excerpts:
         return None
 
@@ -52,10 +45,6 @@ def analyze_book(title: str, author: str | None, excerpts: list[str]) -> dict | 
 
 
 def suggest_library_recommendations(profiles: list[dict], count: int = 5) -> list[dict] | None:
-    """Просит Gemini посоветовать книги, которых НЕТ в библиотеке, опираясь только
-    на уже закэшированные профили (жанр/summary/темы) книг пользователя — не на
-    сырой текст, экономия токенов и есть весь смысл кэширования профилей.
-    При отсутствии ключа или неразборчивом ответе возвращает None."""
     if not profiles:
         return None
 
@@ -121,12 +110,6 @@ def _extract_json(text: str) -> dict | None:
 def extract_criteria_and_judgments(
     query: str,
 ) -> tuple[list[str], dict[tuple[str, str], float]] | None:
-    """Разбирает свободный текстовый запрос пользователя (тема + пожелания к книге)
-    на критерии АХП и попарную важность между ними — то, что при ручном вводе
-    пользователь выставлял бы сам. Саати-величина на каждую пару выводится Gemini
-    из того, как пользователь расставил акценты в тексте. При отсутствии ключа или
-    неразборчивом ответе возвращает None — вызывающий код (magic_query) просто не
-    выдаёт рекомендаций."""
     if not query.strip():
         return None
 
@@ -173,10 +156,6 @@ def extract_criteria_and_judgments(
 def suggest_book_recommendations(
     query: str, criteria: list[str], count: int = 5
 ) -> list[dict] | None:
-    """Просит Gemini предложить реальные книги (не обязательно уже в библиотеке
-    пользователя) под запрос, с оценкой каждой по заданным критериям — эти оценки
-    потом сворачиваются весами критериев в итоговый балл в core.ahp.weighted_score.
-    При отсутствии ключа или неразборчивом ответе возвращает None."""
     if not query.strip() or not criteria:
         return None
 

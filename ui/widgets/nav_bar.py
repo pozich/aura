@@ -69,10 +69,6 @@ class NavTab(QFrame):
         self._refresh_width()
 
     def _bold_stable_width(self) -> int:
-        """Ширина ровно по содержимому (иконка + текст + крестик, если есть), но
-        считается по ЖИРНОМУ начертанию текста — активное состояние красит текст
-        жирным, и если мерить обычным весом, вкладка при активации слегка "дёргается"
-        вширь. Так ширина одна и та же в обоих состояниях."""
         normal_font = self.text_label.font()
         text = self.text_label.text()
         normal_width = QFontMetrics(normal_font).horizontalAdvance(text)
@@ -85,9 +81,6 @@ class NavTab(QFrame):
         self.setFixedWidth(self._bold_stable_width())
 
     def refresh_appearance(self):
-        """Шрифт/тема сменились в Настройках — размер вкладки посчитан под старый
-        шрифт и либо обрезает новый текст (крупнее прежнего), либо остаётся раздутым
-        (мельче прежнего). Пересчитываем и ширину, и цвета разом."""
         self._refresh_width()
         self._apply_style()
 
@@ -110,9 +103,6 @@ class NavTab(QFrame):
 
 
 class NavSeparator(QWidget):
-    """Тонкая разделительная линия между закреплёнными и динамическими вкладками —
-    видна, только пока есть открытые книги/заметки, как в Figma."""
-
     def __init__(self, parent=None):
         super().__init__(parent)
         layout = QHBoxLayout(self)

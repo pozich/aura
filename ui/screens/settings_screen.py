@@ -64,9 +64,6 @@ def _format_binding(binding: dict) -> str:
 
 
 class KeyButton(QPushButton):
-    """Кнопка-бинд: клик → "…" → следующее нажатие перезаписывает комбинацию.
-    Esc во время записи отменяет, старое значение остаётся."""
-
     def __init__(self, action_id: str, binding: dict, on_change, parent=None):
         super().__init__(_format_binding(binding), parent)
         self.setFlat(True)
@@ -128,11 +125,6 @@ def _section_label(text: str) -> QLabel:
 
 
 def _short_reason(message: str) -> str:
-    """GeminiError для HTTP-ошибок несёт сырое тело ответа — многострочный JSON на
-    сотни символов (см. core/gemini_client.generate). В однострочный статус-лейбл
-    рядом с полем ключа это не помещается и рвёт вёрстку. Вытаскиваем человеческое
-    "message" из JSON, если оно есть, иначе просто схлопываем всё в одну строку —
-    и в любом случае ужимаем до разумной длины."""
     match = re.search(r'"message"\s*:\s*"((?:[^"\\]|\\.)*)"', message)
     if match:
         code_match = re.search(r"ошибку (\d+)", message)
@@ -151,11 +143,6 @@ def _separator() -> QFrame:
 
 
 class ThemeSwatch(QPushButton):
-    """Квадрат темы: сам цвет фона + полоска акцента снизу — видна всегда, это "лицо"
-    темы. Кольцо с отступом вокруг — только когда тема выбрана, в ЕЁ ЖЕ акцентном
-    цвете: после применения темы это и есть акцент всего приложения, поэтому кольцо
-    никогда не выглядит случайным чужим пятном поверх другой палитры."""
-
     SIZE = 56
     RING_GAP = 4
     RING_WIDTH = 2
@@ -204,14 +191,6 @@ class ThemeSwatch(QPushButton):
 
 
 class FontSizeTrack(QWidget):
-    """Полоска "точка-тире-точка-тире-точка-тире-точка" вместо слайдера-ползунка: по
-    одной точке на каждый доступный размер, между соседними точками — ровно ОДНА
-    линия (не штрихованный паттерн из многих мелких тире на всю ширину). Подпись
-    размера рисуется прямо тут же, ровно под своей точкой — а не отдельным рядом
-    QLabel'ов, у которого центры равных долей ширины не совпадают с координатами
-    самих точек. Можно и ТОЧНО кликнуть по нужной точке (сразу прыгает на неё), и
-    тащить вдоль линии — оба способа выбирают ближайшую к курсору точку."""
-
     value_changed = Signal(int)
 
     DOT_RADIUS = 5
@@ -341,7 +320,6 @@ class SettingsScreen(QWidget):
 
         self._reload_api_keys()
 
-
     def _build_api_section(self) -> QWidget:
         section = QWidget()
         layout = QVBoxLayout(section)
@@ -451,7 +429,6 @@ class SettingsScreen(QWidget):
         self._reload_api_keys()
         self._validity_label.setText("")
         self._refresh_usage_label()
-
 
     def _build_font_column(self) -> QVBoxLayout:
         col = QVBoxLayout()
@@ -568,7 +545,6 @@ class SettingsScreen(QWidget):
         self._rebuild_font_list()
         self._persist_and_apply()
 
-
     def _build_nav_column(self) -> QVBoxLayout:
         col = QVBoxLayout()
         col.setSpacing(10)
@@ -608,7 +584,6 @@ class SettingsScreen(QWidget):
     def _on_keybind_changed(self, action_id: str, binding: dict):
         self._state.keys[action_id] = binding
         save_keybindings(self._state.keys)
-
 
     def _build_theme_row(self) -> QVBoxLayout:
         col = QVBoxLayout()
@@ -652,7 +627,6 @@ class SettingsScreen(QWidget):
             label.style().polish(label)
         self.size_track.set_colors(*self._current_track_colors())
         self._persist_and_apply()
-
 
     def _persist_and_apply(self):
         save_settings(self._settings)

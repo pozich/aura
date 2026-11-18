@@ -5,10 +5,6 @@ from PySide6.QtWidgets import QLayout
 
 
 class FlowLayout(QLayout):
-    """Грид, который сам переносит элементы на новую строку по ширине контейнера.
-    В Qt нет готового аналога CSS flex-wrap/grid-auto-fill — это стандартный рецепт из
-    документации Qt, переписанный на Python."""
-
     def __init__(self, parent=None, margin: int = 0, h_spacing: int = 8, v_spacing: int = 8):
         super().__init__(parent)
         self._h_spacing = h_spacing

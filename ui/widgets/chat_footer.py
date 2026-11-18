@@ -22,11 +22,6 @@ SYSTEM_PROMPT = (
 
 
 class ChatFooter(QFrame):
-    """Футер чата — закреплён снизу ПОД областью экрана (не floating), во всю ширину окна,
-    виден на любом экране. Свёрнут — одна строка ввода; разворачивается в короткую историю
-    сообщений над ней. Делит state.msgs с полноценным экраном "Чат" — отправка здесь сразу
-    видна там и наоборот. Реально дёргает Gemini в фоновом потоке и сохраняет переписку в БД."""
-
     message_sent = Signal()
 
     def __init__(self, state, parent=None):
@@ -100,8 +95,6 @@ class ChatFooter(QFrame):
         self.toggle_button.setText("▾" if self._expanded else "▴")
 
     def attach_context(self, text: str):
-        """Вызывается из экрана чтения при выделении текста — следующий вопрос
-        в чате пойдёт вместе с этой цитатой."""
         text = text.strip()
         if not text:
             return

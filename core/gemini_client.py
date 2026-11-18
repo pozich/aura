@@ -12,8 +12,7 @@ API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:gener
 
 
 class GeminiError(Exception):
-    """Понятное сообщение о том, что именно пошло не так — чтобы не гадать вслепую,
-    как с жанром, который молча не определялся без единого следа ошибки."""
+    pass
 
 
 def active_api_key() -> str | None:
@@ -25,15 +24,6 @@ def active_api_key() -> str | None:
 
 
 def generate(prompt: str, model: str = DEFAULT_MODEL, api_key: str | None = None) -> tuple[str, dict]:
-    """Единый вызов Gemini generateContent. Возвращает (текст_ответа, usage), где
-    usage — {"prompt_tokens", "response_tokens", "total_tokens"} из самого ответа API
-    (не оценка, а то, что реально посчитал Gemini). Бросает GeminiError с понятной
-    причиной при любой проблеме — дальше решает вызывающий код: автотег жанра просто
-    печатает причину в консоль и продолжает, чат — показывает ошибку пользователю.
-
-    api_key — если передан явно, используется вместо активного ключа из БД. Нужно,
-    чтобы проверить ключ ДО сохранения (settings_screen так и не даёт сохранить
-    ключ, который реально не отвечает)."""
     api_key = api_key or active_api_key()
     if not api_key:
         raise GeminiError(

@@ -38,9 +38,6 @@ QFrame#ModalCard QLabel {{
 
 
 class ModalOverlay(QWidget):
-    """Затемнённый фон во весь родительский экран + контрастная карточка по центру —
-    как Settings/AddModal в Figma. Клик по фону или кнопка "Закрыть" скрывают модалку."""
-
     def __init__(self, title: str, parent=None):
         super().__init__(parent)
         self.setStyleSheet("background-color: rgba(0, 0, 0, 0.6);")

@@ -65,17 +65,6 @@ def _relative_luminance(hex_color: str) -> float:
 
 
 def theme_colors(theme_id: str) -> dict:
-    """Единый язык "выбрано" во всём приложении — кольцо/точка цвета accent темы,
-    а подпись/текст выбранного пункта — accent_light, чтобы не сливаться с фоном и
-    читаться как акцент, а не как сам элемент управления.
-
-    На тёмном фоне "светлее" и правда значит заметнее. На светлом (Крем) всё
-    наоборот — высветлять акцент значит делать его ЕЩЁ бледнее на и так светлом
-    фоне, текст просто пропадает. Поэтому для светлых тем accent_light — это
-    затемнённый акцент, а не высветленный.
-
-    accent_light не хранится в THEMES, а считается от accent — чтобы не держать
-    два согласованных значения вручную."""
     palette = dict(THEMES.get(theme_id, THEMES[DEFAULT_THEME]))
     palette["accent_light"] = _darken(palette["accent"], 0.3) if palette["light"] else _lighten(palette["accent"])
     palette["on_accent"] = "#141414" if _relative_luminance(palette["accent"]) > 150 else "#ffffff"
@@ -83,31 +72,19 @@ def theme_colors(theme_id: str) -> dict:
 
 
 def text_primary_for(theme_id: str) -> str:
-    """Основной цвет текста темы — нужен не только внутри QSS (build_stylesheet), но
-    и местам вроде текста книги, которые рисуются вручную через HTML/QPainter и не
-    участвуют в каскаде стилей приложения."""
     return "#241f16" if theme_colors(theme_id)["light"] else "#f1f5f9"
 
 
 def text_secondary_for(theme_id: str) -> str:
-    """Второстепенный цвет текста (неактивные вкладки, подписи) — та же логика, что
-    text_primary_for, но для мест вроде NavBar/вкладок категорий, где цвет задаётся
-    вручную через setStyleSheet, а не каскадом build_stylesheet."""
     return "#6b5d4f" if theme_colors(theme_id)["light"] else "#94a3b8"
 
 
 def overlay_tint(theme_id: str, opacity: float) -> str:
-    """rgba-подложка "на фоне фона" (активная кнопка-переключатель и т.п.). На тёмных
-    темах светлая полупрозрачная заливка белым читается как подсветка; на светлых
-    темах то же самое белым почти не отличимо от фона — там нужна тёмная заливка."""
     base = "0, 0, 0" if theme_colors(theme_id)["light"] else "255, 255, 255"
     return f"rgba({base}, {opacity})"
 
 
 def resolve_font_family(font_family: str | None) -> str:
-    """"system"/None → настоящее имя системного шрифта (а не выдуманное слово
-    "Системный"), иначе — имя как есть: пресет или свой загруженный через
-    QFontDatabase.addApplicationFont шрифт."""
     if not font_family or font_family == "system":
         from PySide6.QtGui import QFontDatabase
 

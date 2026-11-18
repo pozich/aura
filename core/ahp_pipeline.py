@@ -5,11 +5,6 @@ from core.ai_metadata import extract_criteria_and_judgments, suggest_book_recomm
 
 
 def magic_query(query: str, count: int = 5) -> list[dict]:
-    """Разбирает свободный текстовый запрос пользователя на критерии и их попарную
-    важность (АХП), просит Gemini предложить книги под эти критерии с оценкой по
-    каждому и ранжирует кандидатов весами критериев. Возвращает [] если на любом
-    шаге Gemini не дал разборчивого ответа — чат в этом случае просто сообщает,
-    что подбор не удался."""
     extraction = extract_criteria_and_judgments(query)
     if extraction is None:
         return []

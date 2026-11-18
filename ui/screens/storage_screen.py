@@ -314,7 +314,6 @@ class AddItemModal(ModalOverlay):
 
 
 class StorageScreen(QWidget):
-
     notebook_opened = Signal(int)
     book_added = Signal()
     book_deleted = Signal(int)

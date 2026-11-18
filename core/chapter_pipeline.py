@@ -29,9 +29,6 @@ CHARS_PER_PAGE = 2000
 
 
 def _extract_cover(book: epub.EpubBook, book_id: int) -> str | None:
-    """Ищет обложку тремя способами, потому что разные EPUB помечают её по-разному:
-    EPUB3 явно типизирует элемент, EPUB2 — через <meta name="cover">, а некоторые
-    вообще никак, тогда ищем картинку с "cover" в имени файла."""
     cover_item = None
 
     for item in book.get_items_of_type(ITEM_COVER):
@@ -62,9 +59,6 @@ def _extract_cover(book: epub.EpubBook, book_id: int) -> str | None:
 
 
 def _extract_metadata(book: epub.EpubBook) -> tuple[str | None, str | None]:
-    """Настоящее название/автор лежат прямо в метаданных EPUB (<dc:title>/<dc:creator>) —
-    это не ИИ-угадывание, обычные данные формата. Форма/дата-заполнение в поле ввода
-    (по имени файла) часто не совпадает с реальным названием книги."""
     title = None
     titles = book.get_metadata("DC", "title")
     if titles:
@@ -83,10 +77,6 @@ ParsedBook = tuple[str | None, str | None, str | None, Chapters]
 
 
 def _clean_chapter_text(soup: BeautifulSoup) -> str:
-    """Берём текст ТОЛЬКО из <p> — реальные абзацы почти всегда лежат там. Если брать
-    весь get_text() документа целиком, в текст попадают "осиротевшие" куски вне
-    абзацев — одинокие номера сносок/страниц и т.п. (та самая каша вида "Глава 1" /
-    "13" / длинный отступ / и только потом настоящий текст)."""
     paragraphs = []
     for p in soup.find_all("p"):
         text = re.sub(r"\s+", " ", p.get_text(separator=" ", strip=True)).strip()
@@ -108,10 +98,6 @@ PROFILE_EXCERPTS = 5
 
 
 def segment_text(full_text: str, chunk_size: int = SEGMENT_CHARS) -> list[str]:
-    """Режет текст книги на чанки ограниченного размера, не разрывая абзацы —
-    это и есть кэш "сегментов" книги: сохраняется один раз при импорте
-    (data.db.add_segment), дальше ИИ-операции читают готовые куски вместо
-    того, чтобы заново парсить/резать сырой текст книги."""
     paragraphs = [p for p in full_text.split("\n\n") if p.strip()]
     segments: list[str] = []
     current = ""
@@ -128,8 +114,6 @@ def segment_text(full_text: str, chunk_size: int = SEGMENT_CHARS) -> list[str]:
 
 
 def _representative_excerpts(segments: list[str], count: int = PROFILE_EXCERPTS) -> list[str]:
-    """Начало, конец и равномерно распределённые точки между ними — чтобы профиль
-    книги строился по ней целиком, а не только по первой главе, как раньше."""
     if len(segments) <= count:
         return segments
     step = (len(segments) - 1) / (count - 1)
@@ -146,10 +130,6 @@ def _cache_segments(book_id: int, full_text: str) -> list[str]:
 
 
 def _build_profile(book_id: int, segments: list[str]) -> None:
-    """Best-effort: один вызов Gemini по нескольким отрывкам книги даёт жанр,
-    summary и темы разом (core.ai_metadata.analyze_book), профиль кэшируется в
-    data.db.set_book_profile. Без активного API-ключа или при сбое запроса просто
-    ничего не делает — импорт книги от этого не должен падать."""
     if not segments:
         return
 
@@ -198,17 +178,11 @@ def _local_name(element) -> str:
 
 
 def _fb2_text(element) -> str | None:
-    """В FB2 текст абзаца/заголовка не обязательно лежит ровно в element.text —
-    внутри <p> бывают инлайновые <emphasis>/<strong> и т.п., поэтому собираем
-    itertext() целиком, а не только прямой текст узла."""
     text = re.sub(r"\s+", " ", "".join(element.itertext())).strip()
     return text or None
 
 
 def _fb2_section_chapter(section, fallback_title: str) -> tuple[str, str]:
-    """Заголовок берём из первого <title> секции, текст — из ВСЕХ <p> внутри,
-    включая вложенные под-секции (как и в EPUB, не поднимаем иерархию глав,
-    просто склеиваем всё содержимое верхнего <section> в одну главу)."""
     title_el = next((c for c in section if _local_name(c) == "title"), None)
     title = _fb2_text(title_el) if title_el is not None else None
 
@@ -306,9 +280,6 @@ def _parse_fb2(path: Path, book_id: int) -> ParsedBook:
 
 
 def _parse_pdf(path: Path, book_id: int) -> ParsedBook:
-    """PDF не даёт ни метаданных автора (не всегда), ни структуры глав — берём
-    по странице за "главу" (как EPUB берёт по HTML-документу за главу) и рендерим
-    первую страницу как обложку, раз в самом PDF обложки отдельно не бывает."""
     from PySide6.QtCore import QSize
     from PySide6.QtPdf import QPdfDocument
 

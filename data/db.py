@@ -42,7 +42,6 @@ def get_api_key() -> str | None:
 
 
 def set_api_key(key: str, model_default: str | None = None) -> None:
-    """Приложение поддерживает ровно один ключ — задать новый значит заменить старый."""
     conn = get_connection()
     conn.execute("DELETE FROM api_keys")
     conn.execute(
@@ -320,9 +319,6 @@ def get_book_profile(book_id: int) -> sqlite3.Row | None:
 
 
 def replace_recommendations(items: list[dict]) -> None:
-    """Рекомендации не копятся историей (в отличие от ahp_results раньше) — это
-    витрина "вам может понравиться" на текущий момент, пересчитывается целиком при
-    каждом добавлении/удалении книги, старый список целиком заменяется новым."""
     conn = get_connection()
     conn.execute("DELETE FROM recommendations")
     conn.executemany(

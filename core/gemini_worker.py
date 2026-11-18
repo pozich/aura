@@ -25,14 +25,6 @@ class GeminiThread(QThread):
 
 
 def ask_gemini_async(prompt: str, on_success, on_error, model: str | None = None, api_key: str | None = None, parent=None):
-    """Запускает запрос к Gemini в фоновом потоке — блокирующий сетевой вызов не должен
-    морозить интерфейс на несколько секунд. on_success(text, usage) и on_error(message)
-    вызываются уже в основном потоке (через сигналы Qt, это безопасно). Вызывающая
-    сторона ОБЯЗАНА держать возвращённый QThread в поле экземпляра (не в локальной
-    переменной) — иначе Python может собрать его сборщиком мусора до завершения потока.
-
-    api_key — проверить конкретный ключ (например, ещё не сохранённый), а не тот,
-    что сейчас активен в БД."""
     thread = GeminiThread(prompt, model, api_key, parent)
     thread.succeeded.connect(on_success)
     thread.failed.connect(on_error)
@@ -60,11 +52,6 @@ class MagicQueryThread(QThread):
 
 
 def ask_magic_query_async(query: str, on_success, on_error, parent=None):
-    """Как ask_gemini_async, но для core.ahp_pipeline.magic_query — подбора книг по
-    АХП-критериям, извлечённым из свободного текста запроса. Пайплайн сам делает два
-    последовательных сетевых вызова, поэтому целиком уходит в фоновый поток.
-    on_success(results) получает список кандидатов (может быть пустым, если Gemini
-    не дал разборчивого ответа), on_error(message) — только на неожиданный сбой."""
     thread = MagicQueryThread(query, parent)
     thread.succeeded.connect(on_success)
     thread.failed.connect(on_error)
@@ -88,11 +75,6 @@ class RecommendationsThread(QThread):
 
 
 def ask_recommendations_async(on_success, on_error, parent=None):
-    """Пересчитывает блок "вам может понравиться" в фоне — вызывается при
-    добавлении/удалении книги (ui/main_window.py), не при каждом открытии экрана
-    Библиотеки. on_success(results) получает новый список (может быть пустым),
-    on_error(message) — только на неожиданный сбой; обычные "нет ключа"/"Gemini не
-    ответил" внутри core.recommendations просто дают пустой результат."""
     thread = RecommendationsThread(parent)
     thread.succeeded.connect(on_success)
     thread.failed.connect(on_error)

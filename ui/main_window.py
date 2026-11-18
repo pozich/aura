@@ -102,8 +102,6 @@ class MainWindow(QMainWindow):
         self._fade_in(widget)
 
     def go_back(self):
-        """-1 уровень вложенности. Если истории нет (самый первый экран сессии или
-        уже размотали всё) — падаем на Библиотеку, она всегда самый нижний уровень."""
         target = self._history.pop() if self._history else "library"
         self.show_screen(target, record=False)
 

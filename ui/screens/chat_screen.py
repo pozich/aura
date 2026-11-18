@@ -6,9 +6,6 @@ from ui.widgets.chat_render import build_chat_html
 
 
 class ChatScreen(QWidget):
-    """Только история сообщений — ввод живёт в ChatFooter (виден на всех экранах),
-    дублировать поле ввода здесь не нужно."""
-
     def __init__(self, state, parent=None):
         super().__init__(parent)
         self._state = state

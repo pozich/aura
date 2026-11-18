@@ -116,8 +116,6 @@ def add_criteria_judgment(expert_id: int, criterion_a_id: int, criterion_b_id: i
 
 
 def list_criteria_judgments(session_id: int) -> list[sqlite3.Row]:
-    """Суждения всех экспертов сессии сразу, с именами критериев вместо id —
-    так core.expert_pipeline не лезет в БД второй раз за расшифровкой id."""
     conn = get_connection()
     rows = conn.execute(
         """
@@ -149,7 +147,6 @@ def add_alternative_score(expert_id: int, alternative_id: int, criterion_id: int
 
 
 def list_alternative_scores(session_id: int) -> list[sqlite3.Row]:
-    """Как list_criteria_judgments — сразу с именами альтернативы/критерия."""
     conn = get_connection()
     rows = conn.execute(
         """
@@ -166,9 +163,6 @@ def list_alternative_scores(session_id: int) -> list[sqlite3.Row]:
 
 
 def replace_results(session_id: int, results: list[dict]) -> None:
-    """results — [{"alternative_id", "score", "rank", "triggered_rules"}, ...].
-    Как и recommendations — не история, а снимок последнего расчёта сессии,
-    пересчёт сессии просто заменяет прошлый результат."""
     conn = get_connection()
     conn.execute("DELETE FROM expert_results WHERE session_id = ?", (session_id,))
     conn.executemany(
