@@ -51,7 +51,6 @@ from data.expert_db import (
     list_sessions,
     replace_alternative_scores,
     replace_criteria_judgments,
-    update_session,
 )
 from ui.widgets.icon_button import CircleIconButton
 from ui.widgets.modal import ModalOverlay
@@ -78,16 +77,17 @@ def _section_title(text: str) -> QLabel:
     return label
 
 
-def _step_header(number: str, title: str, hint: str) -> QVBoxLayout:
+def _step_header(number: str, title: str, hint: str | None = None) -> QVBoxLayout:
     header = QVBoxLayout()
     header.setSpacing(2)
     title_label = QLabel(f"{number}. {title}")
     title_label.setStyleSheet("font-family: Georgia, serif; font-size: 15px; font-weight: 600;")
-    hint_label = QLabel(hint)
-    hint_label.setProperty("role", "muted")
-    hint_label.setWordWrap(True)
     header.addWidget(title_label)
-    header.addWidget(hint_label)
+    if hint:
+        hint_label = QLabel(hint)
+        hint_label.setProperty("role", "muted")
+        hint_label.setWordWrap(True)
+        header.addWidget(hint_label)
     return header
 
 
@@ -138,24 +138,11 @@ class ExpertScreen(QWidget):
         self._alternatives: list = []
         self._experts: list = []
 
-        self.title_input = QLineEdit()
-        self.title_input.setPlaceholderText("Название сессии")
-        self.title_input.editingFinished.connect(self._save_session_meta)
-
-        self.problem_input = QLineEdit()
-        self.problem_input.setPlaceholderText("Проблема, которую решаем")
-        self.problem_input.editingFinished.connect(self._save_session_meta)
-
-        new_session_button = QPushButton("Новая сессия")
-        new_session_button.clicked.connect(self._new_session)
-
         history_button = QPushButton("История")
         history_button.clicked.connect(self._open_history)
 
         header_row = QHBoxLayout()
-        header_row.addWidget(self.title_input, 1)
-        header_row.addWidget(self.problem_input, 2)
-        header_row.addWidget(new_session_button)
+        header_row.addStretch()
         header_row.addWidget(history_button)
 
         intro_label = QLabel(
@@ -243,9 +230,7 @@ class ExpertScreen(QWidget):
         )
 
         criteria_panel = QVBoxLayout()
-        criteria_panel.addLayout(
-            _step_header("1", "Критерии", f"Минимум {MIN_CRITERIA} — по ним будете сравнивать альтернативы")
-        )
+        criteria_panel.addLayout(_step_header("1", "Критерии"))
         criteria_panel.addWidget(self.criteria_table)
         criteria_add_row = QHBoxLayout()
         criteria_add_row.addWidget(self.criteria_input, 1)
@@ -253,9 +238,7 @@ class ExpertScreen(QWidget):
         criteria_panel.addLayout(criteria_add_row)
 
         alternatives_panel = QVBoxLayout()
-        alternatives_panel.addLayout(
-            _step_header("2", "Альтернативы", f"Минимум {MIN_ALTERNATIVES} — варианты, из которых выбираем")
-        )
+        alternatives_panel.addLayout(_step_header("2", "Альтернативы"))
         alternatives_panel.addWidget(self.alternatives_table)
         alternative_add_row = QHBoxLayout()
         alternative_add_row.addWidget(self.alternative_input, 1)
@@ -263,9 +246,7 @@ class ExpertScreen(QWidget):
         alternatives_panel.addLayout(alternative_add_row)
 
         experts_panel = QVBoxLayout()
-        experts_panel.addLayout(
-            _step_header("3", "Эксперты", f"Минимум {MIN_EXPERTS} — люди и/или Gemini, каждый оценивает сам")
-        )
+        experts_panel.addLayout(_step_header("3", "Эксперты"))
         experts_panel.addWidget(self.experts_table)
         expert_add_row = QHBoxLayout()
         expert_add_row.addWidget(self.expert_input, 1)
@@ -327,15 +308,8 @@ class ExpertScreen(QWidget):
         self.progress_label.setText(" · ".join(parts) + suffix)
         self.calculate_button.setEnabled(ready)
 
-    def _save_session_meta(self):
-        if self._session_id is None:
-            return
-        update_session(self._session_id, self.title_input.text().strip() or "Без названия", self.problem_input.text().strip())
-
     def _new_session(self):
         self._session_id = create_session("Новая сессия", "")
-        self.title_input.setText("Новая сессия")
-        self.problem_input.setText("")
         self._criteria = []
         self._alternatives = []
         self._experts = []
@@ -353,10 +327,6 @@ class ExpertScreen(QWidget):
 
     def _load_session(self, session_id: int):
         self._session_id = session_id
-        row = get_session(session_id)
-        if row is not None:
-            self.title_input.setText(row["title"])
-            self.problem_input.setText(row["problem_statement"])
         self._criteria = list(list_criteria(session_id))
         self._alternatives = list(list_alternatives(session_id))
         self._experts = list(list_experts(session_id))
@@ -439,10 +409,12 @@ class ExpertScreen(QWidget):
             return
         self.add_gemini_expert_button.setEnabled(False)
         self.add_gemini_expert_button.setText("Gemini оценивает…")
+        session = get_session(self._session_id)
+        problem_statement = session["problem_statement"] if session is not None else ""
         self._gemini_expert_thread = ask_expert_judgment_async(
             [c["name"] for c in self._criteria],
             [a["name"] for a in self._alternatives],
-            self.problem_input.text().strip(),
+            problem_statement,
             self._on_gemini_expert_ready,
             self._on_gemini_expert_error,
             parent=self,
