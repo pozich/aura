@@ -31,14 +31,13 @@ def get_session(session_id: int) -> sqlite3.Row | None:
     return row
 
 
-def update_session(session_id: int, title: str, problem_statement: str) -> None:
+def delete_session(session_id: int) -> None:
     conn = get_connection()
-    conn.execute(
-        "UPDATE expert_sessions SET title = ?, problem_statement = ? WHERE id = ?",
-        (title, problem_statement, session_id),
-    )
+    conn.execute("DELETE FROM expert_sessions WHERE id = ?", (session_id,))
     conn.commit()
     conn.close()
+
+
 
 
 def add_alternative(session_id: int, name: str, book_id: int | None = None) -> int:

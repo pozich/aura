@@ -10,8 +10,6 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
-    QListWidget,
-    QListWidgetItem,
     QMessageBox,
     QPushButton,
     QTableWidget,
@@ -29,19 +27,16 @@ from core.expert_pipeline import (
     ExpertEvaluationError,
     run_evaluation,
 )
-from core.gemini_worker import ask_expert_judgment_async
 from data.db import list_books
 from data.expert_db import (
     add_alternative,
-    add_alternative_score,
-    add_criteria_judgment,
     add_criterion,
     add_expert,
     create_session,
     delete_alternative,
     delete_criterion,
     delete_expert,
-    get_session,
+    delete_session,
     list_alternative_scores,
     list_alternatives,
     list_criteria,
@@ -52,15 +47,19 @@ from data.expert_db import (
     replace_alternative_scores,
     replace_criteria_judgments,
 )
+from ui.widgets.flow_layout import FlowLayout
 from ui.widgets.icon_button import CircleIconButton
-from ui.widgets.modal import ModalOverlay
 
 ROW_HEIGHT = 36
 
 
-def _row_header(table: QTableWidget, stretch: bool = True) -> None:
+def _row_header(table: QTableWidget, stretch: bool = True, fixed_last_column: int | None = None) -> None:
     if stretch:
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        if fixed_last_column is not None:
+            last = table.columnCount() - 1
+            table.horizontalHeader().setSectionResizeMode(last, QHeaderView.ResizeMode.Fixed)
+            table.setColumnWidth(last, fixed_last_column)
     else:
         table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         table.horizontalHeader().setMinimumSectionSize(140)
@@ -100,6 +99,15 @@ def _card(inner_layout) -> QFrame:
     return frame
 
 
+def _set_cell_widget(table: QTableWidget, row: int, col: int, widget) -> None:
+    old = table.cellWidget(row, col)
+    if old is not None:
+        table.removeCellWidget(row, col)
+        old.setParent(None)
+        old.deleteLater()
+    table.setCellWidget(row, col, widget)
+
+
 def _spinbox(low: float, high: float, default: float) -> QDoubleSpinBox:
     box = QDoubleSpinBox()
     box.setRange(low, high)
@@ -107,27 +115,6 @@ def _spinbox(low: float, high: float, default: float) -> QDoubleSpinBox:
     box.setSingleStep(0.5)
     box.setValue(default)
     return box
-
-
-class HistoryModal(ModalOverlay):
-    def __init__(self, on_select, parent=None):
-        super().__init__("История сессий", parent)
-        self._on_select = on_select
-        self.list_widget = QListWidget()
-        self.list_widget.itemDoubleClicked.connect(self._handle_item)
-        self.content_layout.addWidget(self.list_widget)
-
-    def refresh(self):
-        self.list_widget.clear()
-        for row in list_sessions():
-            item = QListWidgetItem(f"{row['title']} — {row['created_at']}")
-            item.setData(Qt.ItemDataRole.UserRole, row["id"])
-            self.list_widget.addItem(item)
-
-    def _handle_item(self, item: QListWidgetItem):
-        session_id = item.data(Qt.ItemDataRole.UserRole)
-        self.hide()
-        self._on_select(session_id)
 
 
 class ExpertScreen(QWidget):
@@ -138,12 +125,16 @@ class ExpertScreen(QWidget):
         self._alternatives: list = []
         self._experts: list = []
 
-        history_button = QPushButton("История")
-        history_button.clicked.connect(self._open_history)
+        sessions_title = QLabel("Сессии")
+        sessions_title.setProperty("role", "muted")
 
-        header_row = QHBoxLayout()
-        header_row.addStretch()
-        header_row.addWidget(history_button)
+        self.sessions_container = QWidget()
+        self.sessions_row = FlowLayout(self.sessions_container, margin=0, h_spacing=8, v_spacing=8)
+
+        sessions_panel = QVBoxLayout()
+        sessions_panel.setSpacing(6)
+        sessions_panel.addWidget(sessions_title)
+        sessions_panel.addWidget(self.sessions_container)
 
         intro_label = QLabel(
             "Сравните несколько альтернатив по критериям с участием нескольких экспертов — "
@@ -155,7 +146,7 @@ class ExpertScreen(QWidget):
 
         self.criteria_table = QTableWidget(0, 3)
         self.criteria_table.setHorizontalHeaderLabels(["Критерий", "Вес", ""])
-        _row_header(self.criteria_table)
+        _row_header(self.criteria_table, fixed_last_column=38)
         self.criteria_table.setMaximumHeight(140)
 
         self.criteria_input = QLineEdit()
@@ -165,7 +156,7 @@ class ExpertScreen(QWidget):
 
         self.alternatives_table = QTableWidget(0, 2)
         self.alternatives_table.setHorizontalHeaderLabels(["Альтернатива", ""])
-        _row_header(self.alternatives_table)
+        _row_header(self.alternatives_table, fixed_last_column=38)
         self.alternatives_table.setMaximumHeight(140)
 
         self.alternative_input = QLineEdit()
@@ -181,17 +172,13 @@ class ExpertScreen(QWidget):
 
         self.experts_table = QTableWidget(0, 2)
         self.experts_table.setHorizontalHeaderLabels(["Эксперт", ""])
-        _row_header(self.experts_table)
+        _row_header(self.experts_table, fixed_last_column=38)
         self.experts_table.setMaximumHeight(140)
 
         self.expert_input = QLineEdit()
         self.expert_input.setPlaceholderText("Имя эксперта")
         add_expert_button = QPushButton("+ эксперт")
         add_expert_button.clicked.connect(self._add_expert)
-
-        self._gemini_expert_thread = None
-        self.add_gemini_expert_button = QPushButton("+ Gemini-эксперт")
-        self.add_gemini_expert_button.clicked.connect(self._add_gemini_expert)
 
         self.judgments_table = QTableWidget(0, 0)
         _row_header(self.judgments_table, stretch=False)
@@ -252,7 +239,6 @@ class ExpertScreen(QWidget):
         expert_add_row.addWidget(self.expert_input, 1)
         expert_add_row.addWidget(add_expert_button)
         experts_panel.addLayout(expert_add_row)
-        experts_panel.addWidget(self.add_gemini_expert_button)
 
         entities_row = QHBoxLayout()
         entities_row.addWidget(_card(criteria_panel), 1)
@@ -285,11 +271,9 @@ class ExpertScreen(QWidget):
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(24, 16, 24, 16)
         outer_layout.setSpacing(12)
-        outer_layout.addLayout(header_row)
+        outer_layout.addLayout(sessions_panel)
         outer_layout.addWidget(intro_label)
         outer_layout.addLayout(main_row, 1)
-
-        self.history_modal = HistoryModal(self._load_session, self)
 
         self._new_session()
 
@@ -320,10 +304,7 @@ class ExpertScreen(QWidget):
         self._rebuild_scores_grid()
         self.results_table.setRowCount(0)
         self.explanation.setPlainText("")
-
-    def _open_history(self):
-        self.history_modal.refresh()
-        self.history_modal.show_modal()
+        self._refresh_sessions_row()
 
     def _load_session(self, session_id: int):
         self._session_id = session_id
@@ -336,6 +317,50 @@ class ExpertScreen(QWidget):
         self._rebuild_judgments_grid()
         self._rebuild_scores_grid()
         self._refresh_results_table()
+        self._refresh_sessions_row()
+
+    def _delete_session(self, session_id: int):
+        delete_session(session_id)
+        if session_id == self._session_id:
+            self._new_session()
+        else:
+            self._refresh_sessions_row()
+
+    def _refresh_sessions_row(self):
+        while self.sessions_row.count():
+            item = self.sessions_row.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        for row in list_sessions():
+            self.sessions_row.addWidget(self._build_session_chip(row))
+
+        new_chip = QPushButton("+ новая сессия")
+        new_chip.setProperty("role", "chip_add")
+        new_chip.clicked.connect(self._new_session)
+        self.sessions_row.addWidget(new_chip)
+
+    def _build_session_chip(self, row) -> QFrame:
+        chip = QFrame()
+        chip.setProperty("role", "card")
+        layout = QHBoxLayout(chip)
+        layout.setContentsMargins(10, 4, 6, 4)
+        layout.setSpacing(4)
+
+        label_button = QPushButton(row["title"] or "Без названия")
+        label_button.setFlat(True)
+        if row["id"] == self._session_id:
+            label_button.setStyleSheet("font-weight: 600;")
+        label_button.clicked.connect(lambda _checked=False, sid=row["id"]: self._load_session(sid))
+
+        close_button = CircleIconButton("close", size=16)
+        close_button.clicked.connect(lambda _checked=False, sid=row["id"]: self._delete_session(sid))
+
+        layout.addWidget(label_button)
+        layout.addWidget(close_button)
+        return chip
 
     def _add_criterion(self):
         name = self.criteria_input.text().strip()
@@ -399,64 +424,6 @@ class ExpertScreen(QWidget):
         self._rebuild_judgments_grid()
         self._rebuild_scores_grid()
 
-    def _add_gemini_expert(self):
-        if self._gemini_expert_thread is not None:
-            return
-        if len(self._criteria) < 2 or not self._alternatives:
-            QMessageBox.information(
-                self, "Нужны данные", "Сначала добавьте минимум 2 критерия и хотя бы одну альтернативу."
-            )
-            return
-        self.add_gemini_expert_button.setEnabled(False)
-        self.add_gemini_expert_button.setText("Gemini оценивает…")
-        session = get_session(self._session_id)
-        problem_statement = session["problem_statement"] if session is not None else ""
-        self._gemini_expert_thread = ask_expert_judgment_async(
-            [c["name"] for c in self._criteria],
-            [a["name"] for a in self._alternatives],
-            problem_statement,
-            self._on_gemini_expert_ready,
-            self._on_gemini_expert_error,
-            parent=self,
-        )
-
-    def _reset_gemini_expert_button(self):
-        self._gemini_expert_thread = None
-        self.add_gemini_expert_button.setEnabled(True)
-        self.add_gemini_expert_button.setText("+ Gemini-эксперт")
-
-    def _on_gemini_expert_ready(self, result: dict):
-        self._reset_gemini_expert_button()
-        if not result:
-            QMessageBox.warning(self, "Gemini не ответил", "Не удалось получить оценку от Gemini-эксперта.")
-            return
-
-        expert_id = add_expert(self._session_id, "Gemini-эксперт")
-        self._experts = list(list_experts(self._session_id))
-
-        name_to_criterion_id = {c["name"]: c["id"] for c in self._criteria}
-        for (a, b), value in result.get("judgments", {}).items():
-            if a in name_to_criterion_id and b in name_to_criterion_id:
-                add_criteria_judgment(expert_id, name_to_criterion_id[a], name_to_criterion_id[b], value)
-
-        name_to_alternative_id = {a["name"]: a["id"] for a in self._alternatives}
-        for alt_name, by_criterion in result.get("scores", {}).items():
-            alternative_id = name_to_alternative_id.get(alt_name)
-            if alternative_id is None:
-                continue
-            for criterion_name, score in by_criterion.items():
-                criterion_id = name_to_criterion_id.get(criterion_name)
-                if criterion_id is not None:
-                    add_alternative_score(expert_id, alternative_id, criterion_id, score)
-
-        self._rebuild_experts_table()
-        self._rebuild_judgments_grid()
-        self._rebuild_scores_grid()
-
-    def _on_gemini_expert_error(self, message: str):
-        self._reset_gemini_expert_button()
-        QMessageBox.warning(self, "Ошибка", message)
-
     def _rebuild_criteria_table(self):
         self.criteria_table.setRowCount(len(self._criteria))
         for row, criterion in enumerate(self._criteria):
@@ -466,7 +433,7 @@ class ExpertScreen(QWidget):
             self.criteria_table.setItem(row, 1, QTableWidgetItem(weight_text))
             button = CircleIconButton("close", size=20)
             button.clicked.connect(lambda _checked=False, cid=criterion["id"]: self._remove_criterion(cid))
-            self.criteria_table.setCellWidget(row, 2, button)
+            _set_cell_widget(self.criteria_table, row, 2, button)
         self._update_progress()
 
     def _rebuild_alternatives_table(self):
@@ -475,7 +442,7 @@ class ExpertScreen(QWidget):
             self.alternatives_table.setItem(row, 0, QTableWidgetItem(alternative["name"]))
             button = CircleIconButton("close", size=20)
             button.clicked.connect(lambda _checked=False, aid=alternative["id"]: self._remove_alternative(aid))
-            self.alternatives_table.setCellWidget(row, 1, button)
+            _set_cell_widget(self.alternatives_table, row, 1, button)
         self._update_progress()
 
     def _rebuild_experts_table(self):
@@ -484,7 +451,7 @@ class ExpertScreen(QWidget):
             self.experts_table.setItem(row, 0, QTableWidgetItem(expert["name"]))
             button = CircleIconButton("close", size=20)
             button.clicked.connect(lambda _checked=False, eid=expert["id"]: self._remove_expert(eid))
-            self.experts_table.setCellWidget(row, 1, button)
+            _set_cell_widget(self.experts_table, row, 1, button)
         self._update_progress()
 
     def _existing_judgment_value(self, expert_id: int, a_id: int, b_id: int, rows) -> float:
@@ -516,7 +483,7 @@ class ExpertScreen(QWidget):
             for col, expert in enumerate(self._experts):
                 value = self._existing_judgment_value(expert["id"], a["id"], b["id"], existing)
                 box = _spinbox(1.0 / 9.0, 9.0, value)
-                self.judgments_table.setCellWidget(row, col, box)
+                _set_cell_widget(self.judgments_table, row, col, box)
 
     def _existing_score_value(self, expert_id: int, alt_id: int, criterion_id: int, rows) -> float:
         for r in rows:
@@ -547,7 +514,7 @@ class ExpertScreen(QWidget):
             for col, (_index, expert, criterion) in enumerate(columns):
                 value = self._existing_score_value(expert["id"], alternative["id"], criterion["id"], existing)
                 box = _spinbox(0.0, 10.0, value)
-                self.scores_table.setCellWidget(row, col, box)
+                _set_cell_widget(self.scores_table, row, col, box)
 
     def _persist_grids(self):
         judgment_rows = []

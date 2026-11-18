@@ -82,32 +82,3 @@ def ask_recommendations_async(on_success, on_error, parent=None):
     return thread
 
 
-class ExpertJudgmentThread(QThread):
-    succeeded = Signal(dict)
-    failed = Signal(str)
-
-    def __init__(self, criteria: list[str], alternatives: list[str], problem_statement: str, parent=None):
-        super().__init__(parent)
-        self._criteria = criteria
-        self._alternatives = alternatives
-        self._problem_statement = problem_statement
-
-    def run(self):
-        from core.ai_metadata import expert_judgments_and_scores
-
-        try:
-            result = expert_judgments_and_scores(self._criteria, self._alternatives, self._problem_statement)
-        except Exception as exc:
-            self.failed.emit(str(exc))
-            return
-        self.succeeded.emit(result or {})
-
-
-def ask_expert_judgment_async(
-    criteria: list[str], alternatives: list[str], problem_statement: str, on_success, on_error, parent=None
-):
-    thread = ExpertJudgmentThread(criteria, alternatives, problem_statement, parent)
-    thread.succeeded.connect(on_success)
-    thread.failed.connect(on_error)
-    thread.start()
-    return thread
