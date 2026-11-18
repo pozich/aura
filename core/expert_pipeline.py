@@ -8,9 +8,33 @@ from data.expert_db import (
     list_alternatives,
     list_criteria,
     list_criteria_judgments,
+    list_experts,
     replace_results,
     set_criteria_weights,
 )
+
+MIN_ALTERNATIVES = 3
+MIN_CRITERIA = 4
+MIN_EXPERTS = 3
+
+
+class ExpertEvaluationError(ValueError):
+    pass
+
+
+def _validate_minimums(alternative_rows, criteria_rows, expert_rows) -> None:
+    if len(alternative_rows) < MIN_ALTERNATIVES:
+        raise ExpertEvaluationError(
+            f"Нужно минимум {MIN_ALTERNATIVES} альтернативы, добавлено {len(alternative_rows)}."
+        )
+    if len(criteria_rows) < MIN_CRITERIA:
+        raise ExpertEvaluationError(
+            f"Нужно минимум {MIN_CRITERIA} критерия, добавлено {len(criteria_rows)}."
+        )
+    if len(expert_rows) < MIN_EXPERTS:
+        raise ExpertEvaluationError(
+            f"Нужно минимум {MIN_EXPERTS} эксперта, добавлено {len(expert_rows)}."
+        )
 
 
 def _group_judgments_by_expert(rows) -> list[dict[tuple[str, str], float]]:
@@ -42,6 +66,9 @@ def run_evaluation(session_id: int) -> dict:
 
     alternative_rows = list_alternatives(session_id)
     name_to_alternative_id = {row["name"]: row["id"] for row in alternative_rows}
+
+    expert_rows = list_experts(session_id)
+    _validate_minimums(alternative_rows, criteria_rows, expert_rows)
 
     judgment_rows = list_criteria_judgments(session_id)
     aggregated_judgments = aggregate_pairwise_judgments(_group_judgments_by_expert(judgment_rows))
