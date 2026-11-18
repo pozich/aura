@@ -15,6 +15,7 @@ KIND_ICON = {
     "settings": "⚙",
     "book": "📖",
     "notes": "✎",
+    "expert": "🧮",
 }
 
 WIDTH_PADDING = 16
@@ -122,6 +123,7 @@ class NavBar(QWidget):
         ("chat", "Чат"),
         ("library", "Библиотека"),
         ("storage", "Хранилище"),
+        ("expert", "Экспертная оценка"),
         ("settings", "Настройки"),
     ]
 

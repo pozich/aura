@@ -8,6 +8,7 @@ from core.app_state import AppState
 from core.gemini_worker import ask_recommendations_async
 from ui.screens.book_screen import BookScreen
 from ui.screens.chat_screen import ChatScreen
+from ui.screens.expert_screen import ExpertScreen
 from ui.screens.library_screen import LibraryScreen
 from ui.screens.notes_screen import NotesScreen
 from ui.screens.settings_screen import SettingsScreen
@@ -59,6 +60,7 @@ class MainWindow(QMainWindow):
         self.storage_screen.book_deleted.connect(self._recompute_recommendations)
 
         self.chat_screen = ChatScreen(self.state)
+        self.expert_screen = ExpertScreen()
         self.settings_screen = SettingsScreen(self.state)
         self.settings_screen.appearance_changed.connect(self._refresh_open_books)
 
@@ -66,6 +68,7 @@ class MainWindow(QMainWindow):
             "library": self.library_screen,
             "storage": self.storage_screen,
             "chat": self.chat_screen,
+            "expert": self.expert_screen,
             "settings": self.settings_screen,
         }
         for screen in self.screens.values():

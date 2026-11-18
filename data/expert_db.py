@@ -31,6 +31,16 @@ def get_session(session_id: int) -> sqlite3.Row | None:
     return row
 
 
+def update_session(session_id: int, title: str, problem_statement: str) -> None:
+    conn = get_connection()
+    conn.execute(
+        "UPDATE expert_sessions SET title = ?, problem_statement = ? WHERE id = ?",
+        (title, problem_statement, session_id),
+    )
+    conn.commit()
+    conn.close()
+
+
 def add_alternative(session_id: int, name: str, book_id: int | None = None) -> int:
     conn = get_connection()
     cur = conn.execute(
@@ -52,6 +62,13 @@ def list_alternatives(session_id: int) -> list[sqlite3.Row]:
     return rows
 
 
+def delete_alternative(alternative_id: int) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM expert_alternatives WHERE id = ?", (alternative_id,))
+    conn.commit()
+    conn.close()
+
+
 def add_criterion(session_id: int, name: str) -> int:
     conn = get_connection()
     cur = conn.execute(
@@ -70,6 +87,13 @@ def list_criteria(session_id: int) -> list[sqlite3.Row]:
     ).fetchall()
     conn.close()
     return rows
+
+
+def delete_criterion(criterion_id: int) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM expert_criteria WHERE id = ?", (criterion_id,))
+    conn.commit()
+    conn.close()
 
 
 def set_criteria_weights(weights: dict[int, float]) -> None:
@@ -100,6 +124,13 @@ def list_experts(session_id: int) -> list[sqlite3.Row]:
     return rows
 
 
+def delete_expert(expert_id: int) -> None:
+    conn = get_connection()
+    conn.execute("DELETE FROM experts WHERE id = ?", (expert_id,))
+    conn.commit()
+    conn.close()
+
+
 def add_criteria_judgment(expert_id: int, criterion_a_id: int, criterion_b_id: int, value: float) -> int:
     conn = get_connection()
     cur = conn.execute(
@@ -119,7 +150,8 @@ def list_criteria_judgments(session_id: int) -> list[sqlite3.Row]:
     conn = get_connection()
     rows = conn.execute(
         """
-        SELECT j.expert_id, ca.name AS criterion_a, cb.name AS criterion_b, j.value
+        SELECT j.expert_id, j.criterion_a_id, j.criterion_b_id,
+               ca.name AS criterion_a, cb.name AS criterion_b, j.value
         FROM expert_criteria_judgments j
         JOIN expert_criteria ca ON ca.id = j.criterion_a_id
         JOIN expert_criteria cb ON cb.id = j.criterion_b_id
@@ -129,6 +161,24 @@ def list_criteria_judgments(session_id: int) -> list[sqlite3.Row]:
     ).fetchall()
     conn.close()
     return rows
+
+
+def replace_criteria_judgments(session_id: int, rows: list[tuple[int, int, int, float]]) -> None:
+    conn = get_connection()
+    conn.execute(
+        "DELETE FROM expert_criteria_judgments WHERE expert_id IN "
+        "(SELECT id FROM experts WHERE session_id = ?)",
+        (session_id,),
+    )
+    conn.executemany(
+        """
+        INSERT INTO expert_criteria_judgments (expert_id, criterion_a_id, criterion_b_id, value)
+        VALUES (?, ?, ?, ?)
+        """,
+        rows,
+    )
+    conn.commit()
+    conn.close()
 
 
 def add_alternative_score(expert_id: int, alternative_id: int, criterion_id: int, score: float) -> int:
@@ -150,7 +200,8 @@ def list_alternative_scores(session_id: int) -> list[sqlite3.Row]:
     conn = get_connection()
     rows = conn.execute(
         """
-        SELECT s.expert_id, a.name AS alternative, c.name AS criterion, s.score
+        SELECT s.expert_id, s.alternative_id, s.criterion_id,
+               a.name AS alternative, c.name AS criterion, s.score
         FROM expert_alternative_scores s
         JOIN expert_alternatives a ON a.id = s.alternative_id
         JOIN expert_criteria c ON c.id = s.criterion_id
@@ -160,6 +211,24 @@ def list_alternative_scores(session_id: int) -> list[sqlite3.Row]:
     ).fetchall()
     conn.close()
     return rows
+
+
+def replace_alternative_scores(session_id: int, rows: list[tuple[int, int, int, float]]) -> None:
+    conn = get_connection()
+    conn.execute(
+        "DELETE FROM expert_alternative_scores WHERE expert_id IN "
+        "(SELECT id FROM experts WHERE session_id = ?)",
+        (session_id,),
+    )
+    conn.executemany(
+        """
+        INSERT INTO expert_alternative_scores (expert_id, alternative_id, criterion_id, score)
+        VALUES (?, ?, ?, ?)
+        """,
+        rows,
+    )
+    conn.commit()
+    conn.close()
 
 
 def replace_results(session_id: int, results: list[dict]) -> None:
